@@ -25,12 +25,17 @@ function renderRoundUI(data) {
   const controlsEl = document.getElementById("explainerControls");
 
   const isExplainer = socket.id === data.explainerId;
+  const isMiner = !isExplainer && !isGuesser;
   const isGuesser = socket.id === data.guesserId;
 
   myRole = isExplainer ? "explainer" : isGuesser ? "guesser" : "miner";
 
   // WORD
-  wordEl.innerText = isExplainer ? data.word : "██████";
+  if (isExplainer || isMiner) {
+  wordEl.innerText = data.word;
+} else {
+  wordEl.innerText = "██████";
+}
 
   // ROLES (ВАЖНО: теперь всегда корректно)
   rolesEl.innerHTML = `
@@ -61,6 +66,36 @@ socket.on("roundStart", (data) => {
   renderRoundUI(data);
 });
 
+
+/* MINES */
+function renderMines() {
+  const mineBox = document.getElementById("mines");
+
+  // ❗ если не майнер — вообще ничего не показываем
+  if (myRole !== "miner") {
+    mineBox.innerHTML = "";
+    return;
+  }
+
+  mineBox.innerHTML = "";
+
+  for (let i = 0; i < 5; i++) {
+    const el = document.createElement("div");
+
+    el.className = "mine";
+    el.innerText = "+";
+
+    el.onclick = () => {
+      el.classList.toggle("active");
+
+      socket.emit("activateMine", {
+        word: "mine" + i
+      });
+    };
+
+    mineBox.appendChild(el);
+  }
+}
 /* TIMER */
 socket.on("timerUpdate", (t) => {
   document.getElementById("timer").innerText = t;
@@ -74,21 +109,29 @@ socket.on("playersUpdate", (players) => {
 
 socket.on("phaseChange", (data) => {
 
+  currentPhase = data.phase;
+
   document.getElementById("phase").innerText = data.phase;
 
-  // если есть роли → рендерим
   if (data.explainerId) {
     renderRoundUI(data);
 
-    // в фазе мин слово видно:
-    if (socket.id === data.guesserId) {
-      document.getElementById("word").innerText = "██████";
-    } else {
+    const isGuesser = socket.id === data.guesserId;
+
+    if (!isGuesser) {
       document.getElementById("word").innerText = data.word;
+    } else {
+      document.getElementById("word").innerText = "██████";
     }
   }
 
-  // кнопки скрыты
+  // 🔥 МИНЫ ТОЛЬКО В ФАЗЕ mine И ТОЛЬКО ДЛЯ miner
+  if (data.phase === "mine") {
+    renderMines();
+  } else {
+    document.getElementById("mines").innerHTML = "";
+  }
+
   document.getElementById("explainerControls").style.display = "none";
 });
 /* END ROUND */
