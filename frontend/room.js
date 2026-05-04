@@ -37,14 +37,14 @@ function renderRoles(data) {
   `;
 }
 /* PHASE */
-socket.on("phaseChange", (data) => {
+// socket.on("phaseChange", (data) => {
 
-  document.getElementById("word").innerText = "****";
+//   document.getElementById("word").innerText = "****";
 
-  document.getElementById("guessControls").style.display = "none";
+//   document.getElementById("guessControls").style.display = "none";
 
-  document.getElementById("phase").innerText = data.phase;
-});
+//   document.getElementById("phase").innerText = data.phase;
+// });
 
 /* ROUND START */
 socket.on("roundStart", (data) => {
