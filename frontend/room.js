@@ -20,6 +20,22 @@ function startGame() {
   });
 }
 
+function renderRoles(data) {
+  const el = document.getElementById("rolesLine");
+
+  const explainer = data.explainerName;
+  const guesser = data.guesserName;
+
+  el.innerHTML = `
+    <div style="text-align:center">
+      <b>${explainer}</b>
+      <div>▼</div>
+      <div style="font-size:22px; color:#00ffcc">${data.word}</div>
+      <div>▼</div>
+      <b>${guesser}</b>
+    </div>
+  `;
+}
 /* PHASE */
 socket.on("phaseChange", (data) => {
   document.getElementById("phase").innerText =
