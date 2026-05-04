@@ -5,9 +5,7 @@ import { Server } from "socket.io";
 const app = express();
 const server = http.createServer(app);
 
-app.get("/", (req, res) => {
-  res.send("Server is running");
-});
+app.get("/", (req, res) => res.send("Server running"));
 
 const io = new Server(server, {
   cors: { origin: "*" }
@@ -45,19 +43,16 @@ io.on("connection", (socket) => {
     const roomId = socket.data.roomId;
 
     if (data.action === "start") {
-      let time = 60;
+      let t = 50;
 
       clearInterval(timers[roomId]);
 
       timers[roomId] = setInterval(() => {
-        time--;
+        t--;
 
-        io.to(roomId).emit("timerUpdate", time);
+        io.to(roomId).emit("timerUpdate", t);
 
-        if (time <= 0) {
-          clearInterval(timers[roomId]);
-          io.to(roomId).emit("gameEnd");
-        }
+        if (t <= 0) clearInterval(timers[roomId]);
       }, 1000);
     }
 
@@ -78,8 +73,6 @@ io.on("connection", (socket) => {
 
 });
 
-const PORT = process.env.PORT || 3000;
-
-server.listen(PORT, () => {
-  console.log("Server running");
-});
+server.listen(process.env.PORT || 3000, () =>
+  console.log("Server running")
+);
