@@ -18,7 +18,7 @@ const rooms = {};
 const timers = {};
 
 /* =========================
-   ROOM CREATE
+   CREATE ROOM
 ========================= */
 function createRoom(roomId) {
   rooms[roomId] = {
@@ -34,13 +34,12 @@ function createRoom(roomId) {
     scores: {},
 
     round: null,
-
     autoLoop: false
   };
 }
 
 /* =========================
-   ROLE PICKER (FIXED)
+   ROLE PICKER (SAFE)
 ========================= */
 function pickRoles(players) {
   if (players.length < 2) {
@@ -68,7 +67,6 @@ function startMinePhase(roomId) {
   room.state = "mine";
 
   let t = room.settings.mineTime;
-
   clearInterval(timers[roomId]);
 
   io.to(roomId).emit("phaseChange", {
@@ -89,7 +87,7 @@ function startMinePhase(roomId) {
 }
 
 /* =========================
-   ROUND START
+   ROUND START (FIXED VIEW MODEL)
 ========================= */
 function startRound(roomId) {
   const room = rooms[roomId];
@@ -110,10 +108,13 @@ function startRound(roomId) {
     activeMines: new Set()
   };
 
+  // 🔥 ВАЖНО: отправляем ВЕСЬ VIEW MODEL
   io.to(roomId).emit("roundStart", {
     word: room.round.word,
-    explainerId: room.round.explainerId,
-    guesserId: room.round.guesserId
+    explainerId: explainer.id,
+    guesserId: guesser.id,
+    explainerName: explainer.name,
+    guesserName: guesser.name
   });
 
   startGuessTimer(roomId);
@@ -143,7 +144,7 @@ function startGuessTimer(roomId) {
 }
 
 /* =========================
-   END ROUND (FIXED SAFE)
+   END ROUND (SAFE)
 ========================= */
 function endRound(roomId, guessed) {
   const room = rooms[roomId];
@@ -192,7 +193,6 @@ function endRound(roomId, guessed) {
 ========================= */
 io.on("connection", (socket) => {
 
-  /* JOIN ROOM */
   socket.on("joinRoom", ({ roomId, name }) => {
     if (!rooms[roomId]) createRoom(roomId);
 
@@ -217,77 +217,48 @@ io.on("connection", (socket) => {
     io.to(roomId).emit("playersUpdate", room.players);
   });
 
-  /* GAME CONTROL */
   socket.on("gameControl", (data) => {
-    const roomId = socket.data.roomId;
-    const room = rooms[roomId];
-
+    const room = rooms[socket.data.roomId];
     if (!room) return;
+
     if (socket.id !== room.hostId) return;
 
     if (data.action === "start") {
       room.autoLoop = true;
-      startMinePhase(roomId);
+      startMinePhase(socket.data.roomId);
     }
 
     if (data.action === "pause") {
       room.autoLoop = false;
-      clearInterval(timers[roomId]);
+      clearInterval(timers[socket.data.roomId]);
     }
   });
 
-  /* SETTINGS */
-  socket.on("updateSettings", ({ settings }) => {
-    const room = rooms[socket.data.roomId];
-    if (!room) return;
-
-    if (socket.id !== room.hostId) return;
-
-    room.settings = settings;
-  });
-
-  /* MINES */
   socket.on("submitMines", ({ words }) => {
     const room = rooms[socket.data.roomId];
-    if (!room || !room.round) return;
+    if (!room?.round) return;
 
     room.round.mines[socket.id] = words;
   });
 
   socket.on("activateMine", ({ word }) => {
     const room = rooms[socket.data.roomId];
-    if (!room || !room.round) return;
+    if (!room?.round) return;
 
     room.round.activeMines.add(word);
   });
 
-  /* END ROUND */
   socket.on("endRound", ({ guessed }) => {
-    const roomId = socket.data.roomId;
-    if (!roomId) return;
-
-    const room = rooms[roomId];
-    if (!room || !room.round) return;
+    const room = rooms[socket.data.roomId];
+    if (!room?.round) return;
 
     if (socket.id !== room.round.explainerId) return;
 
-    endRound(roomId, guessed);
+    endRound(socket.data.roomId, guessed);
   });
 
-  /* NEXT ROUND */
-  socket.on("nextRound", () => {
-    const roomId = socket.data.roomId;
-    if (!roomId) return;
-
-    startMinePhase(roomId);
-  });
-
-  /* DISCONNECT */
   socket.on("disconnect", () => {
-    const roomId = socket.data.roomId;
-    if (!roomId) return;
-
-    const room = rooms[roomId];
+    const room = rooms[socket.data.roomId];
     if (!room) return;
 
     room.players = room.players.filter(p => p.id !== socket.id);
@@ -297,12 +268,12 @@ io.on("connection", (socket) => {
       room.hostId = room.players[0]?.id || null;
     }
 
-    io.to(roomId).emit("playersUpdate", room.players);
+    io.to(socket.data.roomId).emit("playersUpdate", room.players);
   });
 });
 
 /* =========================
-   START SERVER
+   START
 ========================= */
 server.listen(process.env.PORT || 3000, () => {
   console.log("Server running");

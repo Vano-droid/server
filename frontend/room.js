@@ -48,20 +48,31 @@ socket.on("phaseChange", (data) => {
 
 /* ROUND START */
 socket.on("roundStart", (data) => {
-  document.getElementById("word").innerText = "HIDDEN";
 
-  if (socket.id === data.explainerId) {
-    document.getElementById("word").innerText = data.word;
+  currentRound = data;
+
+  const myId = socket.id;
+
+  myRole =
+    myId === data.explainerId
+      ? "explainer"
+      : myId === data.guesserId
+      ? "guesser"
+      : "miner";
+
+  renderRoles(data);
+
+  const wordEl = document.getElementById("word");
+
+  if (myRole === "explainer" || myRole === "miner") {
+    wordEl.innerText = data.word;
+  } else {
+    wordEl.innerText = "██████";
   }
 
-  document.getElementById("role").innerText =
-    socket.id === data.explainerId
-      ? "EXPLAINER"
-      : socket.id === data.guesserId
-      ? "GUESSER"
-      : "MINER";
+  document.getElementById("guessControls").style.display =
+    myRole === "explainer" ? "block" : "none";
 });
-
 /* TIMER */
 socket.on("timerUpdate", (t) => {
   document.getElementById("timer").innerText = t;
