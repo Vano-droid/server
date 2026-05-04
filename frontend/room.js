@@ -72,6 +72,25 @@ socket.on("playersUpdate", (players) => {
     players.map(p => `<div>${p.name}</div>`).join("");
 });
 
+socket.on("phaseChange", (data) => {
+
+  document.getElementById("phase").innerText = data.phase;
+
+  // если есть роли → рендерим
+  if (data.explainerId) {
+    renderRoundUI(data);
+
+    // в фазе мин слово видно:
+    if (socket.id === data.guesserId) {
+      document.getElementById("word").innerText = "██████";
+    } else {
+      document.getElementById("word").innerText = data.word;
+    }
+  }
+
+  // кнопки скрыты
+  document.getElementById("explainerControls").style.display = "none";
+});
 /* END ROUND */
 function endRound(guessed) {
   socket.emit("endRound", { guessed });

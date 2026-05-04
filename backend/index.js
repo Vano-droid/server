@@ -69,39 +69,8 @@ function startMinePhase(roomId) {
   const room = rooms[roomId];
   if (!room) return;
 
-  room.state = "mine";
-
-  let t = room.settings.mineTime;
-  clearInterval(timers[roomId]);
-
-  io.to(roomId).emit("phaseChange", {
-    phase: "mine",
-    time: t
-  });
-
-  timers[roomId] = setInterval(() => {
-    t--;
-
-    io.to(roomId).emit("timerUpdate", t);
-
-    if (t <= 0) {
-      clearInterval(timers[roomId]);
-      startRound(roomId);
-    }
-  }, 1000);
-}
-
-/* =========================
-   ROUND START (FIXED VIEW MODEL)
-========================= */
-function startRound(roomId) {
-  const room = rooms[roomId];
-  if (!room) return;
-
-  room.state = "round";
-
   const players = room.players;
-  if (room.players.length < 2) return;
+  if (players.length < 2) return;
 
   const { explainer, guesser } = pickRoles(players);
 
@@ -113,16 +82,50 @@ function startRound(roomId) {
     activeMines: new Set()
   };
 
-  // 🔥 ВАЖНО: отправляем ВЕСЬ VIEW MODEL
-  io.to(roomId).emit("roundStart", {
+  room.state = "mine";
+
+  let t = room.settings.mineTime;
+  clearInterval(timers[roomId]);
+
+  // 🔥 ВАЖНО: отправляем роли УЖЕ СЕЙЧАС
+  io.to(roomId).emit("phaseChange", {
+    phase: "mine",
+    time: t,
+
     word: room.round.word,
     explainerId: explainer.id,
     guesserId: guesser.id,
     explainerName: explainer.name,
     guesserName: guesser.name
   });
-  console.log("PLAYERS:", room.players.map(p => p.name));
-  console.log("ROLES:", explainer.name, guesser.name);
+
+  timers[roomId] = setInterval(() => {
+    t--;
+
+    io.to(roomId).emit("timerUpdate", t);
+
+    if (t <= 0) {
+      clearInterval(timers[roomId]);
+      startGuessPhase(roomId);
+    }
+  }, 1000);
+}
+
+/* =========================
+   ROUND START (FIXED VIEW MODEL)
+========================= */
+function startGuessPhase(roomId) {
+  const room = rooms[roomId];
+  if (!room || !room.round) return;
+
+  room.state = "round";
+
+  io.to(roomId).emit("roundStart", {
+    word: room.round.word,
+    explainerId: room.round.explainerId,
+    guesserId: room.round.guesserId
+  });
+
   startGuessTimer(roomId);
 }
 
