@@ -5,6 +5,10 @@ import { Server } from "socket.io";
 const app = express();
 const server = http.createServer(app);
 
+app.get("/", (req, res) => {
+  res.send("Server is running");
+});
+
 const io = new Server(server, {
   cors: { origin: "*" }
 });
