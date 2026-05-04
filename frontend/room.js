@@ -39,7 +39,7 @@ function renderRoles(data) {
 /* PHASE */
 socket.on("phaseChange", (data) => {
 
-  document.getElementById("word").innerText = "██████";
+  document.getElementById("word").innerText = "****";
 
   document.getElementById("guessControls").style.display = "none";
 
