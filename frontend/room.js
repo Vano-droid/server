@@ -38,8 +38,12 @@ function renderRoles(data) {
 }
 /* PHASE */
 socket.on("phaseChange", (data) => {
-  document.getElementById("phase").innerText =
-    data.phase.toUpperCase();
+
+  document.getElementById("word").innerText = "██████";
+
+  document.getElementById("guessControls").style.display = "none";
+
+  document.getElementById("phase").innerText = data.phase;
 });
 
 /* ROUND START */
@@ -97,11 +101,17 @@ socket.on("roundStart", () => {
 
 /* SCOREBOARD */
 socket.on("roundEnd", (data) => {
+
+  document.getElementById("word").innerText =
+    "WORD: " + currentRound.word;
+
+  document.getElementById("guessControls").style.display = "none";
+
   const board = document.getElementById("scoreboard");
 
   board.innerHTML =
-    "<h4>Results</h4>" +
+    "<h3>Results</h3>" +
     Object.entries(data.scores)
       .map(([id, score]) => `<div>${id}: ${score}</div>`)
-      .join("<br>");
+      .join("");
 });

@@ -88,14 +88,10 @@ function startRound(roomId) {
   };
 
   io.to(roomId).emit("roundStart", {
-  word: room.round.word,
-
-  explainerId: room.round.explainerId,
-  guesserId: room.round.guesserId,
-
-  explainerName: players.find(p => p.id === room.round.explainerId)?.name,
-  guesserName: players.find(p => p.id === room.round.guesserId)?.name
-});
+    word: room.round.word,
+    explainerId: room.round.explainerId,
+    guesserId: room.round.guesserId
+  });
 
   startGuessTimer(roomId);
 }
@@ -264,61 +260,27 @@ io.on("connection", (socket) => {
       }
     }
   });
-  socket.on("roundStart", (data) => {
 
-  currentRound = data;
-
-  const myId = socket.id;
-
-  myRole =
-    myId === data.explainerId
-      ? "explainer"
-      : myId === data.guesserId
-      ? "guesser"
-      : "miner";
-
-  // WORD RULE
-  const wordEl = document.getElementById("word");
-
-  if (myRole === "explainer") {
-    wordEl.innerText = data.word;
-  } else {
-    wordEl.innerText = "██████";
-  }
-
-  // ROLE UI
-  renderRoles(data);
-
-  // GUESS CONTROLS
-  document.getElementById("guessControls").style.display =
-    myRole === "explainer" ? "block" : "none";
-});
   /* NEXT ROUND */
-  socket.on("phaseChange", (data) => {
+  socket.on("nextRound", () => {
+    const roomId = socket.data.roomId;
+    if (!roomId) return;
 
-  document.getElementById("word").innerText = "██████";
-
-  document.getElementById("guessControls").style.display = "none";
-
-  document.getElementById("phase").innerText = data.phase;
-});
+    startMinePhase(roomId);
+  });
 
   /* END ROUND (from client button) */
-  socket.on("roundEnd", (data) => {
+  socket.on("endRound", ({ guessed }) => {
+    const roomId = socket.data.roomId;
+    if (!roomId) return;
 
-  document.getElementById("word").innerText =
-    "WORD: " + currentRound.word;
+    const room = rooms[roomId];
+    if (!room || !room.round) return;
 
-  document.getElementById("guessControls").style.display = "none";
+    if (socket.id !== room.round.explainerId) return;
 
-  const board = document.getElementById("scoreboard");
-
-  board.innerHTML =
-    "<h3>Results</h3>" +
-    Object.entries(data.scores)
-      .map(([id, score]) => `<div>${id}: ${score}</div>`)
-      .join("");
-});
+    endRound(roomId, guessed);
+  });
 
   /* DISCONNECT */
   socket.on("disconnect", () => {
