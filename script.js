@@ -43,13 +43,15 @@ function initRoom() {
 /* отправка слова */
 function sendWord() {
   const word = document.getElementById("word").value;
-  if (!word) return;
 
   socket.emit("gameAction", {
     roomId: room,
     word,
     name
   });
+
+  // 👉 ВАЖНО: сразу показываем у себя
+  log(`${name}: ${word}`);
 }
 
 /* лог сообщений */
