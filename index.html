@@ -1,53 +1,37 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Game</title>
+  <title>Words Game</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<h2>Words Game</h2>
+<div class="app">
 
-<input id="room" placeholder="room id">
-<button onclick="join()">join</button>
+  <div class="card">
 
-<br><br>
+    <h1>Words Game</h1>
+    <p class="sub">Multiplayer room-based game</p>
 
-<input id="word" placeholder="word">
-<button onclick="send()">send</button>
+    <div class="row">
+      <input id="room" placeholder="Room ID">
+      <button onclick="joinRoom()">Join</button>
+    </div>
 
-<div id="log"></div>
+    <div class="row">
+      <input id="word" placeholder="Your word">
+      <button onclick="sendWord()">Send</button>
+    </div>
+
+    <div id="log" class="log"></div>
+
+  </div>
+
+</div>
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-
-<script>
-const socket = io("https://server-xm7a.onrender.com");
-
-let currentRoom = "";
-
-function log(t) {
-  document.getElementById("log").innerHTML += "<p>" + t + "</p>";
-}
-
-function join() {
-  currentRoom = document.getElementById("room").value;
-  socket.emit("joinRoom", currentRoom);
-  log("joined: " + currentRoom);
-}
-
-function send() {
-  const word = document.getElementById("word").value;
-
-  socket.emit("gameAction", {
-    roomId: currentRoom,
-    word: word
-  });
-}
-
-socket.on("gameUpdate", (data) => {
-  log("player: " + data.word);
-});
-</script>
+<script src="script.js"></script>
 
 </body>
 </html>
