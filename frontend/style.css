@@ -1,11 +1,13 @@
 body {
-  background: #111;
+  background: #0b0f1a;
   color: white;
-  font-family: Arial;
-  text-align: center;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-input, button {
-  margin: 5px;
-  padding: 8px;
+.card {
+  background: #141a2a;
+  border-radius: 16px;
 }

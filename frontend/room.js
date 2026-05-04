@@ -1,5 +1,6 @@
-let room = null;
-let name = null;
+const socket = io("https://server-xm7a.onrender.com");
+
+let room, name;
 
 /* INIT */
 function init() {
@@ -8,50 +9,36 @@ function init() {
   room = params.get("room");
   name = params.get("name");
 
-  document.getElementById("info").innerText =
-    `Room: ${room} | Player: ${name}`;
-
   socket.emit("joinRoom", { roomId: room, name });
 }
 
-/* SEND WORD */
-let canSend = true;
-
-function sendWord() {
-  if (!canSend) return;
-
-  const word = document.getElementById("word").value.trim();
-  if (!word) return;
-
-  canSend = false;
-
-  socket.emit("gameAction", {
-    roomId: room,
-    word
+/* START GAME */
+function startGame() {
+  socket.emit("gameControl", {
+    action: "start"
   });
-
-  setTimeout(() => {
-    canSend = true;
-  }, 300);
 }
 
-/* LOG */
-function log(msg) {
-  const el = document.getElementById("log");
-  el.innerHTML += `<div>${msg}</div>`;
-  el.scrollTop = el.scrollHeight;
-}
-
-/* PLAYERS */
-socket.on("playersUpdate", (players) => {
-  document.getElementById("players").innerHTML =
-    "<b>Players:</b><br>" +
-    players.map(p => p.name).join("<br>");
+/* PHASE */
+socket.on("phaseChange", (data) => {
+  document.getElementById("phase").innerText =
+    data.phase.toUpperCase();
 });
 
-/* GAME */
-socket.on("gameUpdate", (data) => {
-  log(`${data.name}: ${data.word}`);
+/* ROUND START */
+socket.on("roundStart", (data) => {
+  document.getElementById("word").innerText = "HIDDEN";
+
+  if (socket.id === data.explainerId) {
+    document.getElementById("word").innerText = data.word;
+  }
+
+  document.getElementById("role").innerText =
+    socket.id === data.explainerId
+      ? "EXPLAINER"
+      : socket.id === data.guesserId
+      ? "GUESSER"
+      : "MINER";
 });
 
 /* TIMER */
@@ -59,14 +46,45 @@ socket.on("timerUpdate", (t) => {
   document.getElementById("timer").innerText = t;
 });
 
-/* CONTROLS */
-function startGame() {
-  socket.emit("gameControl", { action: "start" });
+/* PLAYERS */
+socket.on("playersUpdate", (players) => {
+  document.getElementById("players").innerHTML =
+    players.map(p => `<div>${p.name}</div>`).join("");
+});
+
+/* MINES UI */
+function sendMines() {
+  const value = document.getElementById("mineInput").value;
+
+  socket.emit("submitMines", {
+    words: value.split(",").map(w => w.trim())
+  });
 }
 
-function pauseGame() {
-  socket.emit("gameControl", { action: "pause" });
-}
+/* MINE VISUALS */
+socket.on("roundStart", () => {
+  const mineBox = document.getElementById("mines");
+  mineBox.innerHTML = "";
 
-/* INIT */
-window.onload = init;
+  for (let i = 0; i < 5; i++) {
+    const el = document.createElement("div");
+    el.className = "mine";
+    el.innerText = "mine";
+    el.onclick = () => {
+      el.classList.toggle("active");
+      socket.emit("activateMine", { word: "mine" + i });
+    };
+    mineBox.appendChild(el);
+  }
+});
+
+/* SCOREBOARD */
+socket.on("roundEnd", (data) => {
+  const board = document.getElementById("scoreboard");
+
+  board.innerHTML =
+    "<h4>Results</h4>" +
+    Object.entries(data.scores)
+      .map(([id, score]) => `<div>${id}: ${score}</div>`)
+      .join("<br>");
+});
