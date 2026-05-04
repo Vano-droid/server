@@ -1,33 +1,81 @@
+// подключение к серверу
 const socket = io("https://server-xm7a.onrender.com");
 
-let currentRoom = "";
+let room = null;
+let name = null;
 
-function log(text) {
-  const logBox = document.getElementById("log");
-  logBox.innerHTML += `<div>${text}</div>`;
-  logBox.scrollTop = logBox.scrollHeight;
+/* =========================
+   INDEX PAGE LOGIC
+========================= */
+
+function joinLobby() {
+  name = document.getElementById("nickname").value;
+  room = document.getElementById("room").value;
+
+  if (!name || !room) return;
+
+  window.location.href = `room.html?room=${room}&name=${name}`;
 }
 
-function joinRoom() {
-  currentRoom = document.getElementById("room").value;
+/* =========================
+   ROOM PAGE LOGIC
+========================= */
 
-  if (!currentRoom) return;
+function initRoom() {
+  const params = new URLSearchParams(window.location.search);
 
-  socket.emit("joinRoom", currentRoom);
-  log("Joined room: " + currentRoom);
-}
+  room = params.get("room");
+  name = params.get("name");
 
-function sendWord() {
-  const word = document.getElementById("word").value;
+  const info = document.getElementById("info");
+  if (info) {
+    info.innerText = `Room: ${room} | Player: ${name}`;
+  }
 
-  if (!currentRoom || !word) return;
+  if (!room || !name) return;
 
-  socket.emit("gameAction", {
-    roomId: currentRoom,
-    word
+  socket.emit("joinRoom", {
+    roomId: room,
+    name: name
   });
 }
 
+/* отправка слова */
+function sendWord() {
+  const word = document.getElementById("word").value;
+  if (!word) return;
+
+  socket.emit("gameAction", {
+    roomId: room,
+    word,
+    name
+  });
+}
+
+/* лог сообщений */
+function log(msg) {
+  const el = document.getElementById("log");
+  if (!el) return;
+
+  el.innerHTML += `<div>${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+/* получение событий */
 socket.on("gameUpdate", (data) => {
-  log("Word: " + data.word);
+  log(`${data.name}: ${data.word}`);
 });
+
+/* авто-определение страницы */
+window.onload = () => {
+  if (document.getElementById("room") && document.getElementById("nickname")) {
+    // index page
+    window.joinLobby = joinLobby;
+  }
+
+  if (document.getElementById("word")) {
+    // room page
+    initRoom();
+    window.sendWord = sendWord;
+  }
+};
