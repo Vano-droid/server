@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Words Game</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <h2>Игра в слова</h2>
+
+  <input id="room" placeholder="Room ID" />
+  <button onclick="joinRoom()">Join</button>
+
+  <br><br>
+
+  <input id="word" placeholder="Word" />
+  <button onclick="sendWord()">Send</button>
+
+  <div id="log"></div>
+
+  <!-- Socket.IO клиент -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="script.js"></script>
+
+</body>
+</html>
