@@ -15,9 +15,15 @@ function init() {
 }
 
 /* SEND WORD */
+let canSend = true;
+
 function sendWord() {
+  if (!canSend) return;
+
   const word = document.getElementById("word").value.trim();
   if (!word) return;
+
+  canSend = false;
 
   socket.emit("gameAction", {
     roomId: room,
@@ -25,6 +31,10 @@ function sendWord() {
   });
 
   log(`${name}: ${word}`);
+
+  setTimeout(() => {
+    canSend = true;
+  }, 300);
 }
 
 /* LOG */
