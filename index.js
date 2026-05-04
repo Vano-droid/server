@@ -13,8 +13,8 @@ const io = new Server(server, {
   cors: { origin: "*" }
 });
 
-// комнаты
 const rooms = {};
+const timers = {};
 
 io.on("connection", (socket) => {
 
@@ -25,31 +25,55 @@ io.on("connection", (socket) => {
     socket.data.name = name;
 
     if (!rooms[roomId]) rooms[roomId] = [];
-    rooms[roomId].push({ id: socket.id, name });
+
+    rooms[roomId].push({
+      id: socket.id,
+      name
+    });
 
     io.to(roomId).emit("playersUpdate", rooms[roomId]);
   });
 
   socket.on("gameAction", (data) => {
-    const roomId = socket.data.roomId;
-    const name = socket.data.name;
-
-    if (!roomId) return;
-
-    io.to(roomId).emit("gameUpdate", {
-      name,
+    io.to(socket.data.roomId).emit("gameUpdate", {
+      name: socket.data.name,
       word: data.word
     });
+  });
+
+  socket.on("gameControl", (data) => {
+    const roomId = socket.data.roomId;
+
+    if (data.action === "start") {
+      let time = 60;
+
+      clearInterval(timers[roomId]);
+
+      timers[roomId] = setInterval(() => {
+        time--;
+
+        io.to(roomId).emit("timerUpdate", time);
+
+        if (time <= 0) {
+          clearInterval(timers[roomId]);
+          io.to(roomId).emit("gameEnd");
+        }
+      }, 1000);
+    }
+
+    if (data.action === "pause") {
+      clearInterval(timers[roomId]);
+    }
   });
 
   socket.on("disconnect", () => {
     const roomId = socket.data.roomId;
 
-    if (roomId && rooms[roomId]) {
-      rooms[roomId] = rooms[roomId].filter(p => p.id !== socket.id);
+    if (!rooms[roomId]) return;
 
-      io.to(roomId).emit("playersUpdate", rooms[roomId]);
-    }
+    rooms[roomId] = rooms[roomId].filter(p => p.id !== socket.id);
+
+    io.to(roomId).emit("playersUpdate", rooms[roomId]);
   });
 
 });

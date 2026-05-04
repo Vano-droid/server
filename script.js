@@ -1,83 +1,61 @@
-// подключение к серверу
 const socket = io("https://server-xm7a.onrender.com");
 
-let room = null;
-let name = null;
+let room, name;
 
-/* =========================
-   INDEX PAGE LOGIC
-========================= */
-
-function joinLobby() {
-  name = document.getElementById("nickname").value;
-  room = document.getElementById("room").value;
-
-  if (!name || !room) return;
-
-  window.location.href = `room.html?room=${room}&name=${name}`;
-}
-
-/* =========================
-   ROOM PAGE LOGIC
-========================= */
-
-function initRoom() {
+/* INIT ROOM */
+function init() {
   const params = new URLSearchParams(window.location.search);
 
   room = params.get("room");
   name = params.get("name");
 
-  const info = document.getElementById("info");
-  if (info) {
-    info.innerText = `Room: ${room} | Player: ${name}`;
-  }
+  document.getElementById("info").innerText =
+    `Room: ${room} | Player: ${name}`;
 
-  if (!room || !name) return;
-
-  socket.emit("joinRoom", {
-    roomId: room,
-    name: name
-  });
+  socket.emit("joinRoom", { roomId: room, name });
 }
 
-/* отправка слова */
+/* SEND WORD */
 function sendWord() {
   const word = document.getElementById("word").value;
 
-  socket.emit("gameAction", {
-    roomId: room,
-    word,
-    name
-  });
+  socket.emit("gameAction", { word });
 
-  // 👉 ВАЖНО: сразу показываем у себя
   log(`${name}: ${word}`);
 }
 
-/* лог сообщений */
+/* LOG */
 function log(msg) {
   const el = document.getElementById("log");
-  if (!el) return;
-
   el.innerHTML += `<div>${msg}</div>`;
   el.scrollTop = el.scrollHeight;
 }
 
-/* получение событий */
+/* PLAYERS LIST */
+socket.on("playersUpdate", (players) => {
+  document.getElementById("players").innerHTML =
+    "<b>Players:</b><br>" +
+    players.map(p => p.name).join("<br>");
+});
+
+/* GAME MESSAGES */
 socket.on("gameUpdate", (data) => {
   log(`${data.name}: ${data.word}`);
 });
 
-/* авто-определение страницы */
-window.onload = () => {
-  if (document.getElementById("room") && document.getElementById("nickname")) {
-    // index page
-    window.joinLobby = joinLobby;
-  }
+/* TIMER */
+socket.on("timerUpdate", (t) => {
+  document.getElementById("timer").innerText = t;
+});
 
-  if (document.getElementById("word")) {
-    // room page
-    initRoom();
-    window.sendWord = sendWord;
-  }
-};
+/* CONTROLS */
+function startGame() {
+  socket.emit("gameControl", { action: "start" });
+}
+
+function pauseGame() {
+  socket.emit("gameControl", { action: "pause" });
+}
+
+/* INIT */
+window.onload = init;
