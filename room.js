@@ -1,49 +1,57 @@
-const params = new URLSearchParams(window.location.search);
+let room = null;
+let name = null;
 
-const room = params.get("room");
-const name = params.get("name");
+/* INIT */
+function init() {
+  const params = new URLSearchParams(window.location.search);
 
-document.getElementById("info").innerText =
-  `Room: ${room} | Player: ${name}`;
+  room = params.get("room");
+  name = params.get("name");
 
-socket.emit("joinRoom", { roomId: room, name });
+  document.getElementById("info").innerText =
+    `Room: ${room} | Player: ${name}`;
 
-/* ---------------- LOG ---------------- */
-function log(msg) {
-  const el = document.getElementById("log");
-  el.innerHTML += `<div>${msg}</div>`;
+  socket.emit("joinRoom", { roomId: room, name });
 }
 
-/* ---------------- WORD ---------------- */
+/* SEND WORD */
 function sendWord() {
-  const word = document.getElementById("wordInput").value;
+  const word = document.getElementById("word").value.trim();
+  if (!word) return;
 
   socket.emit("gameAction", {
-    word,
-    roomId: room
+    roomId: room,
+    word
   });
 
   log(`${name}: ${word}`);
 }
 
-/* ---------------- PLAYERS ---------------- */
+/* LOG */
+function log(msg) {
+  const el = document.getElementById("log");
+  el.innerHTML += `<div>${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+/* PLAYERS */
 socket.on("playersUpdate", (players) => {
   document.getElementById("players").innerHTML =
     "<b>Players:</b><br>" +
     players.map(p => p.name).join("<br>");
 });
 
-/* ---------------- GAME ---------------- */
+/* GAME */
 socket.on("gameUpdate", (data) => {
   log(`${data.name}: ${data.word}`);
 });
 
-/* ---------------- TIMER ---------------- */
+/* TIMER */
 socket.on("timerUpdate", (t) => {
   document.getElementById("timer").innerText = t;
 });
 
-/* ---------------- CONTROL ---------------- */
+/* CONTROLS */
 function startGame() {
   socket.emit("gameControl", { action: "start" });
 }
@@ -51,3 +59,6 @@ function startGame() {
 function pauseGame() {
   socket.emit("gameControl", { action: "pause" });
 }
+
+/* INIT */
+window.onload = init;
