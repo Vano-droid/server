@@ -23,7 +23,7 @@ const timers = {};
 function createRoom(roomId) {
   rooms[roomId] = {
     hostId: null,
-    state: "lobby", // lobby | mine | round | results
+    state: "lobby",
 
     settings: {
       mineTime: 50,
@@ -33,7 +33,28 @@ function createRoom(roomId) {
     players: [],
     scores: {},
 
-    round: null
+    round: null,
+
+    autoLoop: false
+  };
+}
+
+/* =========================
+   ROLE PICKER (FIXED)
+========================= */
+function pickRoles(players) {
+  if (players.length < 2) {
+    return {
+      explainer: players[0],
+      guesser: players[0]
+    };
+  }
+
+  const shuffled = [...players].sort(() => Math.random() - 0.5);
+
+  return {
+    explainer: shuffled[0],
+    guesser: shuffled[1]
   };
 }
 
@@ -79,10 +100,12 @@ function startRound(roomId) {
   const players = room.players;
   if (!players.length) return;
 
+  const { explainer, guesser } = pickRoles(players);
+
   room.round = {
     word: "apple",
-    explainerId: players[Math.floor(Math.random() * players.length)].id,
-    guesserId: players[Math.floor(Math.random() * players.length)].id,
+    explainerId: explainer.id,
+    guesserId: guesser.id,
     mines: {},
     activeMines: new Set()
   };
@@ -120,7 +143,7 @@ function startGuessTimer(roomId) {
 }
 
 /* =========================
-   END ROUND
+   END ROUND (FIXED SAFE)
 ========================= */
 function endRound(roomId, guessed) {
   const room = rooms[roomId];
@@ -133,8 +156,8 @@ function endRound(roomId, guessed) {
   const explainer = round.explainerId;
   const guesser = round.guesserId;
 
-  room.scores[explainer] = room.scores[explainer] || 0;
-  room.scores[guesser] = room.scores[guesser] || 0;
+  room.scores[explainer] ??= 0;
+  room.scores[guesser] ??= 0;
 
   if (guessed) {
     room.scores[guesser] += 5;
@@ -160,7 +183,7 @@ function endRound(roomId, guessed) {
   room.round = null;
 
   setTimeout(() => {
-    startMinePhase(roomId);
+    if (room.autoLoop) startMinePhase(roomId);
   }, 4000);
 }
 
@@ -185,7 +208,7 @@ io.on("connection", (socket) => {
       name
     });
 
-    room.scores[socket.id] = 0;
+    room.scores[socket.id] ??= 0;
 
     if (!room.hostId) {
       room.hostId = socket.id;
@@ -194,31 +217,21 @@ io.on("connection", (socket) => {
     io.to(roomId).emit("playersUpdate", room.players);
   });
 
-  /* CHAT / DEBUG ACTION */
-  socket.on("gameAction", (data) => {
-    const roomId = socket.data.roomId;
-    if (!roomId) return;
-
-    io.to(roomId).emit("gameUpdate", {
-      name: socket.data.name,
-      word: data.word
-    });
-  });
-
-  /* HOST CONTROL */
+  /* GAME CONTROL */
   socket.on("gameControl", (data) => {
     const roomId = socket.data.roomId;
     const room = rooms[roomId];
 
     if (!room) return;
-
     if (socket.id !== room.hostId) return;
 
     if (data.action === "start") {
+      room.autoLoop = true;
       startMinePhase(roomId);
     }
 
     if (data.action === "pause") {
+      room.autoLoop = false;
       clearInterval(timers[roomId]);
     }
   });
@@ -248,28 +261,7 @@ io.on("connection", (socket) => {
     room.round.activeMines.add(word);
   });
 
-  /* WORD CHECK */
-  socket.on("wordUsed", ({ word }) => {
-    const room = rooms[socket.data.roomId];
-    if (!room || !room.round) return;
-
-    for (const playerId in room.round.mines) {
-      if (room.round.mines[playerId]?.includes(word)) {
-        room.scores[room.round.explainerId] -= 2;
-        room.scores[playerId] += 5;
-      }
-    }
-  });
-
-  /* NEXT ROUND */
-  socket.on("nextRound", () => {
-    const roomId = socket.data.roomId;
-    if (!roomId) return;
-
-    startMinePhase(roomId);
-  });
-
-  /* END ROUND (from client button) */
+  /* END ROUND */
   socket.on("endRound", ({ guessed }) => {
     const roomId = socket.data.roomId;
     if (!roomId) return;
@@ -282,6 +274,14 @@ io.on("connection", (socket) => {
     endRound(roomId, guessed);
   });
 
+  /* NEXT ROUND */
+  socket.on("nextRound", () => {
+    const roomId = socket.data.roomId;
+    if (!roomId) return;
+
+    startMinePhase(roomId);
+  });
+
   /* DISCONNECT */
   socket.on("disconnect", () => {
     const roomId = socket.data.roomId;
@@ -292,6 +292,10 @@ io.on("connection", (socket) => {
 
     room.players = room.players.filter(p => p.id !== socket.id);
     delete room.scores[socket.id];
+
+    if (room.hostId === socket.id) {
+      room.hostId = room.players[0]?.id || null;
+    }
 
     io.to(roomId).emit("playersUpdate", room.players);
   });
