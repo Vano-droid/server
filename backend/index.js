@@ -42,18 +42,23 @@ function createRoom(roomId) {
    ROLE PICKER (SAFE)
 ========================= */
 function pickRoles(players) {
-  if (players.length < 2) {
+  const alive = [...players];
+
+  if (alive.length < 2) {
     return {
-      explainer: players[0],
-      guesser: players[0]
+      explainer: alive[0] || null,
+      guesser: alive[0] || null
     };
   }
 
-  const shuffled = [...players].sort(() => Math.random() - 0.5);
+  for (let i = alive.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [alive[i], alive[j]] = [alive[j], alive[i]];
+  }
 
   return {
-    explainer: shuffled[0],
-    guesser: shuffled[1]
+    explainer: alive[0],
+    guesser: alive[1]
   };
 }
 
@@ -96,7 +101,7 @@ function startRound(roomId) {
   room.state = "round";
 
   const players = room.players;
-  if (!players.length) return;
+  if (room.players.length < 2) return;
 
   const { explainer, guesser } = pickRoles(players);
 
@@ -116,7 +121,8 @@ function startRound(roomId) {
     explainerName: explainer.name,
     guesserName: guesser.name
   });
-
+  console.log("PLAYERS:", room.players.map(p => p.name));
+  console.log("ROLES:", explainer.name, guesser.name);
   startGuessTimer(roomId);
 }
 
@@ -203,10 +209,12 @@ io.on("connection", (socket) => {
     socket.data.roomId = roomId;
     socket.data.name = name;
 
-    room.players.push({
-      id: socket.id,
-      name
-    });
+    room.players = room.players.filter(p => p.id !== socket.id);
+
+room.players.push({
+  id: socket.id,
+  name
+});
 
     room.scores[socket.id] ??= 0;
 

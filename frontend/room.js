@@ -3,7 +3,7 @@ const socket = io("https://server-xm7a.onrender.com");
 let room, name;
 let myRole = null;
 let currentRound = null;
-/* INIT */
+
 function init() {
   const params = new URLSearchParams(window.location.search);
 
@@ -13,76 +13,54 @@ function init() {
   socket.emit("joinRoom", { roomId: room, name });
 }
 
-/* START GAME */
+/* START */
 function startGame() {
-  socket.emit("gameControl", {
-    action: "start"
-  });
+  socket.emit("gameControl", { action: "start" });
 }
 
-function renderRoles(data) {
-  const el = document.getElementById("rolesLine");
-
-  const explainer = data.explainerName;
-  const guesser = data.guesserName;
-
-  el.innerHTML = `
-    <div style="text-align:center">
-      <b>${explainer}</b>
-      <div>▼</div>
-      <div style="font-size:22px; color:#00ffcc">${data.word}</div>
-      <div>▼</div>
-      <b>${guesser}</b>
-    </div>
-  `;
-}
-/* PHASE */
-// socket.on("phaseChange", (data) => {
-
-//   document.getElementById("word").innerText = "****";
-
-//   document.getElementById("guessControls").style.display = "none";
-
-//   document.getElementById("phase").innerText = data.phase;
-// });
-
-/* ROUND START */
-socket.on("roundStart", (data) => {
-  currentRound = data;
-
-  if (socket.id === data.explainerId) myRole = "explainer";
-  else if (socket.id === data.guesserId) myRole = "guesser";
-  else myRole = "miner";
-
-  renderRoundUI(data);
-});
-
+/* RENDER */
 function renderRoundUI(data) {
   const wordEl = document.getElementById("word");
   const rolesEl = document.getElementById("rolesLine");
-  const controlsEl = document.getElementById("guessControls");
+  const controlsEl = document.getElementById("explainerControls");
+
+  const isExplainer = socket.id === data.explainerId;
+  const isGuesser = socket.id === data.guesserId;
+
+  myRole = isExplainer ? "explainer" : isGuesser ? "guesser" : "miner";
 
   // WORD
-  if (myRole === "explainer") {
-    wordEl.innerText = data.word;
-  } else {
-    wordEl.innerText = "****";
-  }
+  wordEl.innerText = isExplainer ? data.word : "██████";
 
-  // ROLES UI (ВАЖНО — единый источник правды)
+  // ROLES (ВАЖНО: теперь всегда корректно)
   rolesEl.innerHTML = `
     <div class="text-center">
-      <div class="fw-bold">${data.explainerName || "Explainer"}</div>
-      <div>↓</div>
+      <div class="fw-bold text-success">
+        ${data.explainerName}
+      </div>
+
+      <div>⬇</div>
+
       <div class="badge bg-warning text-dark">WORD</div>
-      <div>↓</div>
-      <div class="fw-bold">${data.guesserName || "Guesser"}</div>
+
+      <div>⬇</div>
+
+      <div class="fw-bold text-primary">
+        ${data.guesserName}
+      </div>
     </div>
   `;
 
   // CONTROLS
-  controlsEl.style.display = (myRole === "explainer") ? "block" : "none";
+  controlsEl.style.display = isExplainer ? "block" : "none";
 }
+
+/* ROUND START */
+socket.on("roundStart", (data) => {
+  currentRound = data;
+  renderRoundUI(data);
+});
+
 /* TIMER */
 socket.on("timerUpdate", (t) => {
   document.getElementById("timer").innerText = t;
@@ -94,39 +72,16 @@ socket.on("playersUpdate", (players) => {
     players.map(p => `<div>${p.name}</div>`).join("");
 });
 
-/* MINES UI */
-function sendMines() {
-  const value = document.getElementById("mineInput").value;
-
-  socket.emit("submitMines", {
-    words: value.split(",").map(w => w.trim())
-  });
+/* END ROUND */
+function endRound(guessed) {
+  socket.emit("endRound", { guessed });
 }
 
-/* MINE VISUALS */
-socket.on("roundStart", () => {
-  const mineBox = document.getElementById("mines");
-  mineBox.innerHTML = "";
-
-  for (let i = 0; i < 5; i++) {
-    const el = document.createElement("div");
-    el.className = "mine";
-    el.innerText = "mine";
-    el.onclick = () => {
-      el.classList.toggle("active");
-      socket.emit("activateMine", { word: "mine" + i });
-    };
-    mineBox.appendChild(el);
-  }
-});
-
-/* SCOREBOARD */
 socket.on("roundEnd", (data) => {
-
   document.getElementById("word").innerText =
     "WORD: " + currentRound.word;
 
-  document.getElementById("guessControls").style.display = "none";
+  document.getElementById("explainerControls").style.display = "none";
 
   const board = document.getElementById("scoreboard");
 
