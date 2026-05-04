@@ -1,3 +1,4 @@
+console.log("server alive");
 // подключение к твоему backend на Render
 const socket = io("https://server-xm7a.onrender.com");
 
