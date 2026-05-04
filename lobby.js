@@ -5,4 +5,5 @@ function join() {
   if (!name || !room) return;
 
   window.location.href = `room.html?room=${room}&name=${name}`;
+  //check
 }
