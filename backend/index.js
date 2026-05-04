@@ -18,7 +18,7 @@ const rooms = {};
 const timers = {};
 
 /* =========================
-   ROOM MODEL
+   ROOM CREATE
 ========================= */
 function createRoom(roomId) {
   rooms[roomId] = {
@@ -38,7 +38,7 @@ function createRoom(roomId) {
 }
 
 /* =========================
-   ROUND START (MINE PHASE)
+   MINE PHASE
 ========================= */
 function startMinePhase(roomId) {
   const room = rooms[roomId];
@@ -48,12 +48,12 @@ function startMinePhase(roomId) {
 
   let t = room.settings.mineTime;
 
+  clearInterval(timers[roomId]);
+
   io.to(roomId).emit("phaseChange", {
     phase: "mine",
     time: t
   });
-
-  clearInterval(timers[roomId]);
 
   timers[roomId] = setInterval(() => {
     t--;
@@ -68,7 +68,7 @@ function startMinePhase(roomId) {
 }
 
 /* =========================
-   ROUND PHASE
+   ROUND START
 ========================= */
 function startRound(roomId) {
   const room = rooms[roomId];
@@ -77,7 +77,7 @@ function startRound(roomId) {
   room.state = "round";
 
   const players = room.players;
-  if (players.length === 0) return;
+  if (!players.length) return;
 
   room.round = {
     word: "apple",
@@ -120,37 +120,44 @@ function startGuessTimer(roomId) {
 }
 
 /* =========================
-   END ROUND + SCORING
+   END ROUND
 ========================= */
 function endRound(roomId, guessed) {
   const room = rooms[roomId];
-  if (!room) return;
+  if (!room || !room.round) return;
 
-  const explainer = room.round.explainerId;
-  const guesser = room.round.guesserId;
+  clearInterval(timers[roomId]);
 
-  // guess reward
+  const round = room.round;
+
+  const explainer = round.explainerId;
+  const guesser = round.guesserId;
+
+  room.scores[explainer] = room.scores[explainer] || 0;
+  room.scores[guesser] = room.scores[guesser] || 0;
+
   if (guessed) {
-    room.scores[guesser] = (room.scores[guesser] || 0) + 5;
+    room.scores[guesser] += 5;
   }
 
-  // mine system
-  for (const minerId in room.round.mines) {
-    const mines = room.round.mines[minerId];
+  for (const minerId in round.mines) {
+    const mines = round.mines[minerId] || [];
 
     for (const m of mines) {
-      if (room.round.activeMines.has(m)) {
+      if (round.activeMines?.has(m)) {
         room.scores[minerId] = (room.scores[minerId] || 0) + 5;
-        room.scores[explainer] = (room.scores[explainer] || 0) - 3;
+        room.scores[explainer] -= 3;
       }
     }
   }
 
   io.to(roomId).emit("roundEnd", {
-    scores: room.scores
+    scores: room.scores,
+    word: round.word
   });
 
   room.state = "results";
+  room.round = null;
 
   setTimeout(() => {
     startMinePhase(roomId);
@@ -158,7 +165,7 @@ function endRound(roomId, guessed) {
 }
 
 /* =========================
-   SOCKET LOGIC
+   SOCKET
 ========================= */
 io.on("connection", (socket) => {
 
@@ -166,12 +173,12 @@ io.on("connection", (socket) => {
   socket.on("joinRoom", ({ roomId, name }) => {
     if (!rooms[roomId]) createRoom(roomId);
 
+    const room = rooms[roomId];
+
     socket.join(roomId);
 
     socket.data.roomId = roomId;
     socket.data.name = name;
-
-    const room = rooms[roomId];
 
     room.players.push({
       id: socket.id,
@@ -187,9 +194,10 @@ io.on("connection", (socket) => {
     io.to(roomId).emit("playersUpdate", room.players);
   });
 
-  /* CHAT / WORDS */
+  /* CHAT / DEBUG ACTION */
   socket.on("gameAction", (data) => {
     const roomId = socket.data.roomId;
+    if (!roomId) return;
 
     io.to(roomId).emit("gameUpdate", {
       name: socket.data.name,
@@ -197,15 +205,16 @@ io.on("connection", (socket) => {
     });
   });
 
-  /* HOST CONTROLS */
+  /* HOST CONTROL */
   socket.on("gameControl", (data) => {
     const roomId = socket.data.roomId;
     const room = rooms[roomId];
+
     if (!room) return;
 
-    if (data.action === "start") {
-      if (socket.id !== room.hostId) return;
+    if (socket.id !== room.hostId) return;
 
+    if (data.action === "start") {
       startMinePhase(roomId);
     }
 
@@ -239,7 +248,7 @@ io.on("connection", (socket) => {
     room.round.activeMines.add(word);
   });
 
-  /* WORD USED CHECK */
+  /* WORD CHECK */
   socket.on("wordUsed", ({ word }) => {
     const room = rooms[socket.data.roomId];
     if (!room || !room.round) return;
@@ -255,14 +264,30 @@ io.on("connection", (socket) => {
   /* NEXT ROUND */
   socket.on("nextRound", () => {
     const roomId = socket.data.roomId;
+    if (!roomId) return;
+
     startMinePhase(roomId);
+  });
+
+  /* END ROUND (from client button) */
+  socket.on("endRound", ({ guessed }) => {
+    const roomId = socket.data.roomId;
+    if (!roomId) return;
+
+    const room = rooms[roomId];
+    if (!room || !room.round) return;
+
+    if (socket.id !== room.round.explainerId) return;
+
+    endRound(roomId, guessed);
   });
 
   /* DISCONNECT */
   socket.on("disconnect", () => {
     const roomId = socket.data.roomId;
-    const room = rooms[roomId];
+    if (!roomId) return;
 
+    const room = rooms[roomId];
     if (!room) return;
 
     room.players = room.players.filter(p => p.id !== socket.id);

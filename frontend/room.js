@@ -1,7 +1,8 @@
 const socket = io("https://server-xm7a.onrender.com");
 
 let room, name;
-
+let myRole = null;
+let currentRound = null;
 /* INIT */
 function init() {
   const params = new URLSearchParams(window.location.search);
