@@ -48,31 +48,41 @@ socket.on("phaseChange", (data) => {
 
 /* ROUND START */
 socket.on("roundStart", (data) => {
-
   currentRound = data;
 
-  const myId = socket.id;
+  if (socket.id === data.explainerId) myRole = "explainer";
+  else if (socket.id === data.guesserId) myRole = "guesser";
+  else myRole = "miner";
 
-  myRole =
-    myId === data.explainerId
-      ? "explainer"
-      : myId === data.guesserId
-      ? "guesser"
-      : "miner";
+  renderRoundUI(data);
+});
 
-  renderRoles(data);
-
+function renderRoundUI(data) {
   const wordEl = document.getElementById("word");
+  const rolesEl = document.getElementById("rolesLine");
+  const controlsEl = document.getElementById("guessControls");
 
-  if (myRole === "explainer" || myRole === "miner") {
+  // WORD
+  if (myRole === "explainer") {
     wordEl.innerText = data.word;
   } else {
-    wordEl.innerText = "██████";
+    wordEl.innerText = "****";
   }
 
-  document.getElementById("guessControls").style.display =
-    myRole === "explainer" ? "block" : "none";
-});
+  // ROLES UI (ВАЖНО — единый источник правды)
+  rolesEl.innerHTML = `
+    <div class="text-center">
+      <div class="fw-bold">${data.explainerName || "Explainer"}</div>
+      <div>↓</div>
+      <div class="badge bg-warning text-dark">WORD</div>
+      <div>↓</div>
+      <div class="fw-bold">${data.guesserName || "Guesser"}</div>
+    </div>
+  `;
+
+  // CONTROLS
+  controlsEl.style.display = (myRole === "explainer") ? "block" : "none";
+}
 /* TIMER */
 socket.on("timerUpdate", (t) => {
   document.getElementById("timer").innerText = t;
