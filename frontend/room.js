@@ -30,8 +30,6 @@ function sendWord() {
     word
   });
 
-  log(`${name}: ${word}`);
-
   setTimeout(() => {
     canSend = true;
   }, 300);
