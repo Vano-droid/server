@@ -13,28 +13,45 @@ const io = new Server(server, {
   cors: { origin: "*" }
 });
 
-// комнаты (простая версия)
+// комнаты
 const rooms = {};
 
 io.on("connection", (socket) => {
 
-  socket.on("joinRoom", (roomId) => {
+  socket.on("joinRoom", ({ roomId, name }) => {
     socket.join(roomId);
 
-    if (!rooms[roomId]) rooms[roomId] = [];
+    socket.data.roomId = roomId;
+    socket.data.name = name;
 
-    rooms[roomId].push(socket.id);
+    if (!rooms[roomId]) rooms[roomId] = [];
+    rooms[roomId].push({ id: socket.id, name });
+
+    io.to(roomId).emit("playersUpdate", rooms[roomId]);
   });
 
   socket.on("gameAction", (data) => {
-    io.to(data.roomId).emit("gameUpdate", data);
+    const roomId = socket.data.roomId;
+    const name = socket.data.name;
+
+    if (!roomId) return;
+
+    io.to(roomId).emit("gameUpdate", {
+      name,
+      word: data.word
+    });
   });
 
   socket.on("disconnect", () => {
-    for (const roomId in rooms) {
-      rooms[roomId] = rooms[roomId].filter(id => id !== socket.id);
+    const roomId = socket.data.roomId;
+
+    if (roomId && rooms[roomId]) {
+      rooms[roomId] = rooms[roomId].filter(p => p.id !== socket.id);
+
+      io.to(roomId).emit("playersUpdate", rooms[roomId]);
     }
   });
+
 });
 
 const PORT = process.env.PORT || 3000;
