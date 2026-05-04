@@ -226,12 +226,14 @@ room.players.push({
   });
 
   socket.on("gameControl", (data) => {
+    console.log("GAME CONTROL:", data);
     const room = rooms[socket.data.roomId];
     if (!room) return;
 
     if (socket.id !== room.hostId) return;
-
+    console.log("ROOM FOUND:", room.state);
     if (data.action === "start") {
+      console.log("START PRESSED");
       room.autoLoop = true;
       startMinePhase(socket.data.roomId);
     }
