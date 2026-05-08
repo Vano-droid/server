@@ -20,44 +20,50 @@ function startGame() {
 
 /* RENDER */
 function renderRoundUI(data) {
+
   const wordEl = document.getElementById("word");
   const rolesEl = document.getElementById("rolesLine");
-  const controlsEl = document.getElementById("explainerControls");
 
   const isExplainer = socket.id === data.explainerId;
-  const isMiner = !isExplainer && !isGuesser;
   const isGuesser = socket.id === data.guesserId;
 
-  myRole = isExplainer ? "explainer" : isGuesser ? "guesser" : "miner";
+  myRole = isExplainer
+    ? "explainer"
+    : isGuesser
+    ? "guesser"
+    : "miner";
 
   // WORD
-  if (isExplainer || isMiner) {
-  wordEl.innerText = data.word;
-} else {
-  wordEl.innerText = "██████";
-}
+  if (myRole === "guesser") {
+    wordEl.innerText = "██████";
+  } else {
+    wordEl.innerText = data.word;
+  }
 
-  // ROLES (ВАЖНО: теперь всегда корректно)
+  // ROLES
   rolesEl.innerHTML = `
-    <div class="text-center">
-      <div class="fw-bold text-success">
-        ${data.explainerName}
+    <div class="role-wrapper">
+
+      <div class="role-card">
+        <div>${data.explainerName}</div>
+        <div class="role-label">объясняет</div>
       </div>
 
-      <div>⬇</div>
+      <div style="font-size:40px;">▶</div>
 
-      <div class="badge bg-warning text-dark">WORD</div>
-
-      <div>⬇</div>
-
-      <div class="fw-bold text-primary">
-        ${data.guesserName}
+      <div class="role-card">
+        <div>${data.guesserName}</div>
+        <div class="role-label">отгадывает</div>
       </div>
+
     </div>
   `;
 
   // CONTROLS
-  controlsEl.style.display = isExplainer ? "block" : "none";
+  document.getElementById("explainerControls").style.display =
+    myRole === "explainer"
+      ? "flex"
+      : "none";
 }
 
 /* ROUND START */
@@ -69,9 +75,9 @@ socket.on("roundStart", (data) => {
 
 /* MINES */
 function renderMines() {
+
   const mineBox = document.getElementById("mines");
 
-  // ❗ если не майнер — вообще ничего не показываем
   if (myRole !== "miner") {
     mineBox.innerHTML = "";
     return;
@@ -79,11 +85,12 @@ function renderMines() {
 
   mineBox.innerHTML = "";
 
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 6; i++) {
+
     const el = document.createElement("div");
 
     el.className = "mine";
-    el.innerText = "+";
+    el.innerText = "?";
 
     el.onclick = () => {
       el.classList.toggle("active");
@@ -103,8 +110,16 @@ socket.on("timerUpdate", (t) => {
 
 /* PLAYERS */
 socket.on("playersUpdate", (players) => {
-  document.getElementById("players").innerHTML =
-    players.map(p => `<div>${p.name}</div>`).join("");
+
+  const el = document.getElementById("players");
+
+  el.innerHTML = players.map(p => `
+    <div class="player-card">
+      <div>${p.name}</div>
+      <div class="player-score">0</div>
+    </div>
+  `).join("");
+
 });
 
 socket.on("phaseChange", (data) => {

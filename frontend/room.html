@@ -21,33 +21,34 @@
 </div>
 
 <!-- PLAYERS -->
-<div class="players p-2" id="players"></div>
+<div class="sidebar-left">
+  <div id="players"></div>
+</div>
 
 <!-- CENTER GAME AREA -->
-<div class="center text-center mt-4">
+<div class="game-center">
 
-  <!-- ROLES DISPLAY -->
-  <div id="rolesLine" class="mb-3 p-3 bg-secondary rounded"></div>
+  <div id="rolesLine"></div>
 
-  <!-- ROLE BADGE -->
-  <div id="role" class="mb-2 fs-5 text-warning"></div>
+  <div id="word" class="word">WAITING...</div>
 
-  <!-- WORD -->
-  <div id="word" class="display-5 fw-bold my-3">WAITING...</div>
-
-  <!-- TIMER -->
-  <div id="timer" class="fs-3 text-info"></div>
-
-  <!-- EXPLAINER CONTROLS -->
-  <div id="explainerControls" style="display:none;" class="mt-3">
-    <button class="btn btn-success me-2" onclick="endRound(true)">
-      ✔ Word guessed
+  <div id="explainerControls">
+    <button onclick="endRound(true)">
+      Слово угадано!
     </button>
-    <button class="btn btn-danger" onclick="endRound(false)">
-      ✖ Not guessed
+
+    <button onclick="endRound(false)">
+      Слово не угадано!
     </button>
   </div>
 
+  <div class="hint">
+    Загадайте слово не наступая на мины
+  </div>
+
+  <div id="mines" class="mines-grid"></div>
+
+</div>
   <!-- MINES -->
   <div id="mines" class="mt-4 d-flex flex-wrap gap-2 justify-content-center"></div>
 
