@@ -236,7 +236,7 @@ function sendMines() {
 function renderMines(showAll = false) {
 
   const mineBox =
-    document.getElementById("mineWords");
+    document.getElementById("mineBox");
 
   if (!mineBox) return;
 

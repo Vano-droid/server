@@ -88,16 +88,28 @@ function startMinePhase(roomId) {
   clearInterval(timers[roomId]);
 
   // 🔥 ВАЖНО: отправляем роли УЖЕ СЕЙЧАС
-  io.to(roomId).emit("phaseChange", {
-    phase: "mine",
-    time: t,
+  const explainer =
+  room.players.find(
+    p => p.id === room.round?.explainerId
+  );
 
-    word: room.round.word,
-    explainerId: explainer.id,
-    guesserId: guesser.id,
-    explainerName: explainer.name,
-    guesserName: guesser.name
-  });
+const guesser =
+  room.players.find(
+    p => p.id === room.round?.guesserId
+  );
+
+io.to(roomId).emit("phaseChange", {
+  phase: "mine",
+  time: t,
+
+  word: room.round?.word,
+
+  explainerId: room.round?.explainerId,
+  guesserId: room.round?.guesserId,
+
+  explainerName: explainer?.name || "PLAYER",
+  guesserName: guesser?.name || "PLAYER"
+});
 
   timers[roomId] = setInterval(() => {
     t--;
