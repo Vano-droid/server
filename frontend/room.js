@@ -7,7 +7,7 @@ let currentRound = null;
 let currentPhase = "lobby";
 let myRole = null;
 
-let myMines = [];
+let mineWords = [];
 let submittedMines = false;
 
 /* INIT */
@@ -27,6 +27,7 @@ function init() {
 
 /* START */
 function startGame() {
+
   socket.emit("gameControl", {
     action: "start"
   });
@@ -66,14 +67,23 @@ function renderRoundUI(data) {
       ? "guesser"
       : "miner";
 
-  // WORD
+  /* WORD */
+
+  // слово видят:
+  // объясняющий + минёры
+  // не видит отгадывающий
+
   if (isGuesser) {
+
     wordEl.innerText = "██████";
+
   } else {
+
     wordEl.innerText = data.word;
   }
 
-  // ROLES
+  /* ROLES */
+
   rolesEl.innerHTML = `
     <div class="roles-wrapper">
 
@@ -83,7 +93,7 @@ function renderRoundUI(data) {
         </div>
 
         <div class="player-role">
-          объясняет
+          ОБЪЯСНЯЕТ
         </div>
       </div>
 
@@ -97,22 +107,28 @@ function renderRoundUI(data) {
         </div>
 
         <div class="player-role">
-          отгадывает
+          ОТГАДЫВАЕТ
         </div>
       </div>
 
     </div>
   `;
 
-  // CONTROLS
+  /* EXPLAINER BUTTONS */
+
   controlsEl.style.display =
     currentPhase === "round" &&
     isExplainer
       ? "block"
       : "none";
 
-  // MINES INPUT
-  if (isMiner && currentPhase === "mine") {
+  /* MINES INPUT */
+
+  if (
+    isMiner &&
+    currentPhase === "mine" &&
+    !submittedMines
+  ) {
 
     mineInput.style.display = "block";
     mineBtn.style.display = "inline-block";
@@ -124,18 +140,25 @@ function renderRoundUI(data) {
   }
 }
 
-/* PHASE */
+/* PHASE CHANGE */
 socket.on("phaseChange", (data) => {
 
   currentPhase = data.phase;
 
   document.getElementById("phase").innerText =
-    data.phase;
+    data.phase.toUpperCase();
 
   document.getElementById("timer").innerText =
-    data.time;
+    "⏱ " + data.time;
 
-  // ФАЗА МИН
+  // новая фаза мин → сбрасываем
+  if (data.phase === "mine") {
+
+    submittedMines = false;
+    mineWords = [];
+  }
+
+  // если пришли роли
   if (data.word) {
 
     currentRound = data;
@@ -146,7 +169,7 @@ socket.on("phaseChange", (data) => {
   }
 });
 
-/* ROUND */
+/* ROUND START */
 socket.on("roundStart", (data) => {
 
   currentRound = data;
@@ -168,9 +191,11 @@ socket.on("timerUpdate", (t) => {
 socket.on("playersUpdate", (players) => {
 
   document.getElementById("players").innerHTML =
-    players.map(p =>
-      `<div>${p.name}</div>`
-    ).join("");
+    players.map(p => `
+      <div class="player-item">
+        ${p.name}
+      </div>
+    `).join("");
 });
 
 /* SEND MINES */
@@ -178,8 +203,13 @@ function sendMines() {
 
   if (myRole !== "miner") return;
 
+  const input =
+    document.getElementById("mineInput");
+
   const value =
-    document.getElementById("mineInput").value;
+    input.value.trim();
+
+  if (!value) return;
 
   mineWords =
     value
@@ -191,6 +221,14 @@ function sendMines() {
     words: mineWords
   });
 
+  submittedMines = true;
+
+  input.style.display = "none";
+
+  document.getElementById(
+    "sendMineBtn"
+  ).style.display = "none";
+
   renderMines();
 }
 
@@ -198,9 +236,13 @@ function sendMines() {
 function renderMines(showAll = false) {
 
   const mineBox =
-    document.getElementById("mines");
+    document.getElementById("mineWords");
+
+  if (!mineBox) return;
 
   mineBox.innerHTML = "";
+
+  if (!mineWords.length) return;
 
   mineWords.forEach(word => {
 
@@ -218,6 +260,7 @@ function renderMines(showAll = false) {
         ? word
         : "MINA";
 
+    // только минёр может активировать
     if (
       myRole === "miner" &&
       currentPhase === "round"
@@ -225,7 +268,9 @@ function renderMines(showAll = false) {
 
       mine.onclick = () => {
 
-        mine.classList.toggle("mine-active");
+        mine.classList.toggle(
+          "mine-active"
+        );
 
         socket.emit("activateMine", {
           word
@@ -248,6 +293,8 @@ function endRound(guessed) {
 /* RESULTS */
 socket.on("roundEnd", (data) => {
 
+  currentPhase = "results";
+
   renderMines(true);
 
   document.getElementById("word").innerText =
@@ -261,9 +308,18 @@ socket.on("roundEnd", (data) => {
     document.getElementById("scoreboard");
 
   board.innerHTML =
+    `
+      <h3 class="mb-3">
+        RESULTS
+      </h3>
+    ` +
     Object.entries(data.scores)
       .map(([id, score]) =>
-        `<div>${id}: ${score}</div>`
+        `
+          <div class="score-item">
+            ${id}: ${score}
+          </div>
+        `
       )
       .join("");
 });

@@ -46,7 +46,7 @@
     Загадайте слово не наступая на мины
   </div>
 
-  <div id="mineWords" class="mt-4 d-flex flex-wrap gap-2 justify-content-center"></div>
+  <div id="mineBox" class="mt-4 d-flex flex-wrap gap-3 justify-content-center"></div>
 
 </div>
   <!-- MINES -->
@@ -55,7 +55,10 @@
     <input id="mineInput" class="form-control w-50 mx-auto" placeholder="mine words">
     <button
   id="sendMineBtn"
-  class="btn btn-warning mt-2">Заминировать слово</button>
+  class="btn btn-warning mt-2"
+  onclick="sendMines()">
+  Заминировать слово
+</button>
   </div>
 
   <!-- SCORE -->
