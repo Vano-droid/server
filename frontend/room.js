@@ -7,8 +7,8 @@ let currentRound = null;
 let currentPhase = "lobby";
 let myRole = null;
 
-let mineWords = [];
-let activeMines = [];
+let myMines = [];
+let submittedMines = false;
 
 /* INIT */
 function init() {
