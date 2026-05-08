@@ -27,7 +27,7 @@
 
 <!-- CENTER GAME AREA -->
 <div class="game-center">
-
+  <div id="timer"></div>
   <div id="rolesLine"></div>
 
   <div id="word" class="word">WAITING...</div>
@@ -46,17 +46,16 @@
     Загадайте слово не наступая на мины
   </div>
 
-  <div id="mines" class="mines-grid"></div>
+  <div id="mines" class="mt-4 d-flex flex-wrap gap-2 justify-content-center"></div>
 
 </div>
   <!-- MINES -->
-  <div id="mines" class="mt-4 d-flex flex-wrap gap-2 justify-content-center"></div>
 
   <div class="mt-3">
     <input id="mineInput" class="form-control w-50 mx-auto" placeholder="mine words">
     <button
   id="sendMineBtn"
-  class="btn btn-warning mt-2"></button>
+  class="btn btn-warning mt-2">Заминировать слово</button>
   </div>
 
   <!-- SCORE -->

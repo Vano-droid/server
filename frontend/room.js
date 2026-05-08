@@ -1,42 +1,70 @@
 const socket = io("https://server-xm7a.onrender.com");
 
-let room, name;
-let myRole = null;
+let room;
+let name;
+
 let currentRound = null;
+let currentPhase = "lobby";
+let myRole = null;
+
 let mineWords = [];
 let activeMines = [];
-let currentPhase = "lobby";
+
+/* INIT */
 function init() {
-  const params = new URLSearchParams(window.location.search);
+
+  const params =
+    new URLSearchParams(window.location.search);
 
   room = params.get("room");
   name = params.get("name");
 
-  socket.emit("joinRoom", { roomId: room, name });
+  socket.emit("joinRoom", {
+    roomId: room,
+    name
+  });
 }
 
 /* START */
 function startGame() {
-  socket.emit("gameControl", { action: "start" });
+  socket.emit("gameControl", {
+    action: "start"
+  });
 }
 
-/* RENDER */
+/* UI */
 function renderRoundUI(data) {
-  const wordEl = document.getElementById("word");
-  const rolesEl = document.getElementById("rolesLine");
-  const controlsEl = document.getElementById("explainerControls");
-  const mineInput = document.getElementById("mineInput");
-  const mineBtn = document.getElementById("sendMineBtn");
 
-  const isExplainer = socket.id === data.explainerId;
-  const isGuesser = socket.id === data.guesserId;
-  const isMiner = !isExplainer && !isGuesser;
+  const wordEl =
+    document.getElementById("word");
 
-  myRole = isExplainer
-    ? "explainer"
-    : isGuesser
-    ? "guesser"
-    : "miner";
+  const rolesEl =
+    document.getElementById("rolesLine");
+
+  const controlsEl =
+    document.getElementById("explainerControls");
+
+  const mineInput =
+    document.getElementById("mineInput");
+
+  const mineBtn =
+    document.getElementById("sendMineBtn");
+
+  const isExplainer =
+    socket.id === data.explainerId;
+
+  const isGuesser =
+    socket.id === data.guesserId;
+
+  const isMiner =
+    !isExplainer && !isGuesser;
+
+  myRole =
+    isExplainer
+      ? "explainer"
+      : isGuesser
+      ? "guesser"
+      : "miner";
 
   // WORD
   if (isGuesser) {
@@ -49,40 +77,76 @@ function renderRoundUI(data) {
   rolesEl.innerHTML = `
     <div class="roles-wrapper">
 
-      <div class="player-card explainer">
-        <div class="player-name">${data.explainerName}</div>
-        <div class="player-role">объясняет</div>
+      <div class="player-card">
+        <div class="player-name">
+          ${data.explainerName}
+        </div>
+
+        <div class="player-role">
+          объясняет
+        </div>
       </div>
 
-      <div class="word-center">
-        <div class="vs-circle">▶</div>
+      <div class="vs-circle">
+        ▶
       </div>
 
-      <div class="player-card guesser">
-        <div class="player-name">${data.guesserName}</div>
-        <div class="player-role">отгадывает</div>
+      <div class="player-card">
+        <div class="player-name">
+          ${data.guesserName}
+        </div>
+
+        <div class="player-role">
+          отгадывает
+        </div>
       </div>
 
     </div>
   `;
 
-  // BUTTONS
+  // CONTROLS
   controlsEl.style.display =
-    currentPhase === "round" && isExplainer
+    currentPhase === "round" &&
+    isExplainer
       ? "block"
       : "none";
 
   // MINES INPUT
   if (isMiner && currentPhase === "mine") {
+
     mineInput.style.display = "block";
     mineBtn.style.display = "inline-block";
+
   } else {
+
     mineInput.style.display = "none";
     mineBtn.style.display = "none";
   }
 }
 
-/* ROUND START */
+/* PHASE */
+socket.on("phaseChange", (data) => {
+
+  currentPhase = data.phase;
+
+  document.getElementById("phase").innerText =
+    data.phase;
+
+  document.getElementById("timer").innerText =
+    data.time;
+
+  // ФАЗА МИН
+  if (data.word) {
+
+    currentRound = data;
+
+    renderRoundUI(data);
+
+    renderMines();
+  }
+});
+
+/* ROUND */
 socket.on("roundStart", (data) => {
 
   currentRound = data;
@@ -93,54 +157,9 @@ socket.on("roundStart", (data) => {
   renderMines();
 });
 
-
-/* MINES */
-function renderMines(showAll = false) {
-  const mineBox = document.getElementById("mines");
-
-  mineBox.innerHTML = "";
-
-  if (!mineWords.length) return;
-
-  mineWords.forEach((word, index) => {
-
-    const mine = document.createElement("div");
-
-    mine.className =
-      "mine-card " +
-      (activeMines.includes(word)
-        ? "mine-active"
-        : "");
-
-    // кто видит мины
-    const canSee =
-      myRole === "miner" || showAll;
-
-    mine.innerText = canSee
-      ? word
-      : "MINA";
-
-    // активировать могут только минёры
-    if (myRole === "miner" && currentPhase === "round") {
-      mine.onclick = () => {
-
-        if (!activeMines.includes(word)) {
-          activeMines.push(word);
-
-          socket.emit("activateMine", {
-            word
-          });
-
-          renderMines();
-        }
-      };
-    }
-
-    mineBox.appendChild(mine);
-  });
-}
 /* TIMER */
 socket.on("timerUpdate", (t) => {
+
   document.getElementById("timer").innerText =
     "⏱ " + t;
 });
@@ -148,79 +167,13 @@ socket.on("timerUpdate", (t) => {
 /* PLAYERS */
 socket.on("playersUpdate", (players) => {
 
-  const el = document.getElementById("players");
-
-  el.innerHTML = players.map(p => `
-    <div class="player-card">
-      <div>${p.name}</div>
-      <div class="player-score">0</div>
-    </div>
-  `).join("");
-
+  document.getElementById("players").innerHTML =
+    players.map(p =>
+      `<div>${p.name}</div>`
+    ).join("");
 });
 
-socket.on("phaseChange", (data) => {
-  currentPhase = data.phase;
-
-  document.getElementById("phase").innerText =
-    data.phase.toUpperCase();
-
-  // TIMER
-  document.getElementById("timer").innerText =
-    data.time || "";
-
-  // ВАЖНО:
-  // на фазе мин НЕ очищаем UI
-  if (data.explainerId) {
-    currentRound = data;
-    renderRoundUI(data);
-  }
-
-  // скрываем кнопки до round
-  if (data.phase !== "round") {
-    document.getElementById(
-      "explainerControls"
-    ).style.display = "none";
-  }
-});
-/* END ROUND */
-socket.on("roundEnd", (data) => {
-
-  renderMines(true);
-
-  document.getElementById("word").innerText =
-    "СЛОВО: " + currentRound.word;
-
-  document.getElementById(
-    "explainerControls"
-  ).style.display = "none";
-
-  const board =
-    document.getElementById("scoreboard");
-
-  board.innerHTML =
-    "<h3>Results</h3>" +
-    Object.entries(data.scores)
-      .map(([id, score]) =>
-        `<div>${id}: ${score}</div>`
-      )
-      .join("");
-});
-
-socket.on("roundEnd", (data) => {
-  document.getElementById("word").innerText =
-    "WORD: " + currentRound.word;
-
-  document.getElementById("explainerControls").style.display = "none";
-
-  const board = document.getElementById("scoreboard");
-
-  board.innerHTML =
-    "<h3>Results</h3>" +
-    Object.entries(data.scores)
-      .map(([id, score]) => `<div>${id}: ${score}</div>`)
-      .join("");
-});
+/* SEND MINES */
 function sendMines() {
 
   if (myRole !== "miner") return;
@@ -228,10 +181,11 @@ function sendMines() {
   const value =
     document.getElementById("mineInput").value;
 
-  mineWords = value
-    .split(",")
-    .map(w => w.trim())
-    .filter(Boolean);
+  mineWords =
+    value
+      .split(",")
+      .map(w => w.trim())
+      .filter(Boolean);
 
   socket.emit("submitMines", {
     words: mineWords
@@ -240,6 +194,7 @@ function sendMines() {
   renderMines();
 }
 
+/* RENDER MINES */
 function renderMines(showAll = false) {
 
   const mineBox =
@@ -247,20 +202,13 @@ function renderMines(showAll = false) {
 
   mineBox.innerHTML = "";
 
-  if (!mineWords.length) return;
-
-  mineWords.forEach((word) => {
+  mineWords.forEach(word => {
 
     const mine =
       document.createElement("div");
 
     mine.className =
-      "mine-card " +
-      (
-        activeMines.includes(word)
-          ? "mine-active"
-          : ""
-      );
+      "mine-card";
 
     const canSee =
       myRole === "miner" || showAll;
@@ -277,19 +225,45 @@ function renderMines(showAll = false) {
 
       mine.onclick = () => {
 
-        if (!activeMines.includes(word)) {
+        mine.classList.toggle("mine-active");
 
-          activeMines.push(word);
-
-          socket.emit("activateMine", {
-            word
-          });
-
-          renderMines();
-        }
+        socket.emit("activateMine", {
+          word
+        });
       };
     }
 
     mineBox.appendChild(mine);
   });
 }
+
+/* END ROUND */
+function endRound(guessed) {
+
+  socket.emit("endRound", {
+    guessed
+  });
+}
+
+/* RESULTS */
+socket.on("roundEnd", (data) => {
+
+  renderMines(true);
+
+  document.getElementById("word").innerText =
+    currentRound.word;
+
+  document.getElementById(
+    "explainerControls"
+  ).style.display = "none";
+
+  const board =
+    document.getElementById("scoreboard");
+
+  board.innerHTML =
+    Object.entries(data.scores)
+      .map(([id, score]) =>
+        `<div>${id}: ${score}</div>`
+      )
+      .join("");
+});
