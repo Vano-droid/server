@@ -69,7 +69,7 @@ function renderRoundUI(data) {
   const isMiner = !isExplainer && !isGuesser;
   myRole = isExplainer ? "explainer" : isGuesser ? "guesser" : "miner";
 
-  wordEl.innerText = isGuesser ? "██████" : data.word;
+  wordEl.innerText = isGuesser ? "*****" : data.word;
   rolesEl.innerHTML = `
     <div class="roles-wrapper">
       <div class="player-card"><div class="player-name">${data.explainerName||"???"}</div><div class="player-role">ОБЪЯСНЯЕТ</div></div>
@@ -281,7 +281,7 @@ function renderMines(showAll = false) {
     const mine = document.createElement("div");
     mine.className = "mine-card";
     const isOwner = m.minerId === socket.id;
-    mine.innerText = (isOwner || showAll) ? m.word : "MINA";
+    mine.innerText = (isOwner || showAll) ? m.word : "💣";
     const mineKey = `${m.minerId}:${m.word}`;
     if (activeMineKeys.includes(mineKey)) mine.classList.add("mine-active");
     if (myRole === "miner" && currentPhase === "round" && isOwner && !activeMineKeys.includes(mineKey)) {
