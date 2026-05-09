@@ -9,7 +9,10 @@
 </head>
 <body onload="init()" class="bg-dark text-light">
 
-<div class="phase text-center p-2 fw-bold" id="phase">LOBBY</div>
+<div class="phase text-center p-2 fw-bold" id="phase">
+  <span id="phaseText">LOBBY</span>
+  <span id="timer" class="ms-3"></span>
+</div>
 
 <div class="topbar d-flex justify-content-between p-2">
   <div>
@@ -25,7 +28,6 @@
 </div>
 
 <div class="game-center">
-  <div id="timer"></div>
   <div id="rolesLine"></div>
   <div id="word" class="word">WAITING...</div>
 

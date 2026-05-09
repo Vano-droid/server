@@ -156,7 +156,7 @@ function updateHostControls() {
 /* --- События сервера --- */
 socket.on("phaseChange", (data) => {
   currentPhase = data.phase;
-  document.getElementById("phase").innerText = data.phase === "finished" ? "GAME OVER" : data.phase.toUpperCase();
+  document.getElementById("phaseText").innerText = data.phase === "finished" ? "GAME OVER" : data.phase.toUpperCase();
   document.getElementById("timer").innerText = data.time ? "⏱ " + data.time : "";
 
   if (data.phase === "mine") {
@@ -255,7 +255,7 @@ socket.on("gameRestarted", () => {
   document.getElementById("sendMineBtn").style.display = "none";
   document.getElementById("mineBox").innerHTML = "";
   document.getElementById("timer").innerText = "";
-  document.getElementById("phase").innerText = "LOBBY";
+  document.getElementById("phaseText").innerText = "LOBBY";
   updateHostControls();
 });
 

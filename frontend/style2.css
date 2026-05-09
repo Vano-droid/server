@@ -148,11 +148,9 @@ body{
 }
 
 /* TIMER */
-#timer{
-  position:fixed;
-  bottom:20px;
-  right:20px;
-  font-size:28px;
+#timer {
+  font-size: 1.5rem;
+  vertical-align: middle;
 }
 
 /* Настройки хоста */
