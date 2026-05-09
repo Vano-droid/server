@@ -229,7 +229,11 @@ socket.on("settingsUpdated", (settings) => {
     mineBtn.style.display = canMine ? "inline-block" : "none";
   }
 });
-
+socket.on("customPacksUpdated", (packs) => {
+  console.log("Получены паки:", packs); // для проверки в консоли
+  availablePacks = packs;
+  updatePackSelect();
+});
 socket.on("gameOver", (data) => {
   alert(`Победил ${data.winner}! Игра окончена.`);
   currentPhase = "finished";
