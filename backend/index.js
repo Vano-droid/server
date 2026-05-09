@@ -1904,7 +1904,14 @@ function sendPlayersUpdate(roomId) {
   }));
   io.to(roomId).emit("playersUpdate", playersData);
 }
-
+function sendAvailablePacks(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+  const standard = Object.keys(wordPacks);
+  const custom = Object.keys(room.customPacks || {});
+  const allPacks = [...new Set([...standard, ...custom])];
+  io.to(roomId).emit("customPacksUpdated", allPacks);
+}
 /* =========================
    MINE PHASE
 ========================= */
@@ -2099,6 +2106,7 @@ function restartGame(roomId) {
 
   io.to(roomId).emit("gameRestarted");
   sendPlayersUpdate(roomId);
+  sendAvailablePacks(roomId);
   io.to(roomId).emit("phaseChange", { phase: "lobby", time: 0 });
 }
 
@@ -2123,6 +2131,7 @@ io.on("connection", (socket) => {
     }
 
     sendPlayersUpdate(roomId);
+    sendAvailablePacks(roomId);
   });
 
   socket.on("gameControl", (data) => {

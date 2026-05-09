@@ -13,6 +13,7 @@ let allMines = [];
 let activeMineKeys = [];
 
 let maxMines = 3; // значение по умолчанию, обновится через settingsUpdated
+let availablePacks = []; // массив названий всех доступных паков
 
 function init() {
   const params = new URLSearchParams(window.location.search);
@@ -33,9 +34,34 @@ function skipPhase() {
 function togglePause() {
   socket.emit("pauseResume");
 }
+function updatePackSelect() {
+  const select = document.getElementById('setWordPack');
+  if (!select) return;
 
+  const currentValue = select.value;
+  select.innerHTML = ''; // очищаем
+
+  availablePacks.forEach(pack => {
+    const option = document.createElement('option');
+    option.value = pack;
+    option.textContent = pack;
+    select.appendChild(option);
+  });
+
+  // Восстановим выбор, если он есть в списке
+  if (availablePacks.includes(currentValue)) {
+    select.value = currentValue;
+  } else if (availablePacks.length > 0) {
+    select.value = availablePacks[0];
+  }
+}
 function openSettings() {
   const modal = new bootstrap.Modal(document.getElementById('settingsModal'));
+  function openSettings() {
+  updatePackSelect(); // обновим селект перед открытием
+  const modal = new bootstrap.Modal(document.getElementById('settingsModal'));
+  modal.show();
+}
   modal.show();
 }
 
@@ -177,7 +203,14 @@ socket.on("pauseToggled", (paused) => {
   isPaused = paused;
   updateHostControls();
 });
-
+socket.on("customPacksUpdated", (packs) => {
+  availablePacks = packs;
+  // Если модальное окно открыто, сразу обновим селект
+  const select = document.getElementById('setWordPack');
+  if (select && document.getElementById('settingsModal').classList.contains('show')) {
+    updatePackSelect();
+  }
+});
 socket.on("settingsUpdated", (settings) => {
   document.getElementById('setMineTime').value = settings.mineTime || 50;
   document.getElementById('setGuessTime').value = settings.guessTime || 50;
