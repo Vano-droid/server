@@ -2,15 +2,15 @@ const socket = io("https://server-xm7a.onrender.com");
 
 let room;
 let name;
+let isHost = false;
 
 let currentRound = null;
 let currentPhase = "lobby";
 let myRole = null;
 
-// Вместо mineWords теперь общие массивы мин
-let allMines = [];           // [{ minerId, word }]
-let activeMineKeys = [];    // ["minerId:word"]
-let submittedMines = false; // флаг для текущего игрока
+let allMines = [];
+let activeMineKeys = [];
+let submittedMines = false;
 
 /* INIT */
 function init() {
@@ -25,6 +25,52 @@ function init() {
 function startGame() {
   socket.emit("gameControl", { action: "start" });
 }
+
+function skipPhase() {
+  socket.emit("skipPhase");
+}
+
+function togglePause() {
+  socket.emit("pauseResume");
+}
+
+function openSettings() {
+  const modal = new bootstrap.Modal(document.getElementById('settingsModal'));
+  // Загрузить текущие настройки из сервера (при необходимости через событие)
+  // Пока заполним из локальной копии, если её нет - пустые
+  modal.show();
+}
+
+function saveSettings() {
+  const mineTime = document.getElementById('setMineTime').value;
+  const guessTime = document.getElementById('setGuessTime').value;
+  const maxMines = document.getElementById('setMaxMines').value;
+  const wordPack = document.getElementById('setWordPack').value;
+
+  socket.emit("updateSettings", { mineTime, guessTime, maxMines, wordPack });
+  bootstrap.Modal.getInstance(document.getElementById('settingsModal')).hide();
+}
+
+socket.on("settingsUpdated", (settings) => {
+  // Update local fields if needed
+  document.getElementById('setMineTime').value = settings.mineTime || 50;
+  document.getElementById('setGuessTime').value = settings.guessTime || 50;
+  document.getElementById('setMaxMines').value = settings.maxMines || 3;
+  document.getElementById('setWordPack').value = settings.wordPack || "default";
+});
+
+socket.on("pauseToggled", (paused) => {
+  const btn = document.getElementById('pauseBtn');
+  if (paused) {
+    btn.innerText = "Resume";
+    btn.classList.remove('btn-info');
+    btn.classList.add('btn-danger');
+  } else {
+    btn.innerText = "Pause";
+    btn.classList.remove('btn-danger');
+    btn.classList.add('btn-info');
+  }
+});
 
 /* UI */
 function renderRoundUI(data) {
@@ -73,6 +119,33 @@ function renderRoundUI(data) {
     mineInput.style.display = "none";
     mineBtn.style.display = "none";
   }
+
+  updateHostControls();
+}
+
+function updateHostControls() {
+  const skipBtn = document.getElementById("skipBtn");
+  const pauseBtn = document.getElementById("pauseBtn");
+  const settingsBtn = document.getElementById("settingsBtn");
+  const startBtn = document.getElementById("startBtn");
+
+  if (!isHost) {
+    skipBtn.style.display = "none";
+    pauseBtn.style.display = "none";
+    settingsBtn.style.display = "none";
+    return;
+  }
+
+  settingsBtn.style.display = (currentPhase === "lobby" || currentPhase === "results") ? "inline-block" : "none";
+  startBtn.style.display = (currentPhase === "lobby" || currentPhase === "results") ? "inline-block" : "none";
+
+  if (currentPhase === "mine" || currentPhase === "round") {
+    skipBtn.style.display = "inline-block";
+    pauseBtn.style.display = "inline-block";
+  } else {
+    skipBtn.style.display = "none";
+    pauseBtn.style.display = "none";
+  }
 }
 
 /* PHASE CHANGE */
@@ -85,7 +158,6 @@ socket.on("phaseChange", (data) => {
     submittedMines = false;
     allMines = [];
     activeMineKeys = [];
-    // Очищаем поле ввода
     const mineInput = document.getElementById("mineInput");
     if (mineInput) mineInput.value = "";
     renderMines();
@@ -96,6 +168,8 @@ socket.on("phaseChange", (data) => {
     renderRoundUI(data);
     renderMines();
   }
+
+  updateHostControls();
 });
 
 /* ROUND START */
@@ -104,7 +178,6 @@ socket.on("roundStart", (data) => {
   currentPhase = "round";
   document.getElementById("phase").innerText = "ROUND";
 
-  // Обновляем мины из данных сервера
   allMines = data.mines || [];
   activeMineKeys = data.activeMines || [];
 
@@ -119,9 +192,20 @@ socket.on("timerUpdate", (t) => {
 
 /* PLAYERS */
 socket.on("playersUpdate", (players) => {
-  document.getElementById("players").innerHTML = players
-    .map(p => `<div class="player-item">${p.name}</div>`)
-    .join("");
+  // Отображаем игроков с очками и хостом
+  const playersDiv = document.getElementById("players");
+  playersDiv.innerHTML = players.map(p => {
+    const star = p.isHost ? " ⭐" : "";
+    return `<div class="player-item">
+      ${p.name}${star}
+      <span class="player-score">${p.score}</span>
+    </div>`;
+  }).join("");
+
+  // Определяем, хост ли я
+  const me = players.find(p => p.id === socket.id);
+  isHost = me?.isHost || false;
+  updateHostControls();
 });
 
 /* SEND MINES */
@@ -140,14 +224,13 @@ function sendMines() {
   input.style.display = "none";
   document.getElementById("sendMineBtn").style.display = "none";
 
-  // Локально добавляем мины для немедленного отображения у минера
   mineWords.forEach(word => {
     allMines.push({ minerId: socket.id, word });
   });
   renderMines();
 }
 
-/* RENDER MINES (новый общий рендер) */
+/* RENDER MINES */
 function renderMines(showAll = false) {
   const mineBox = document.getElementById("mineBox");
   if (!mineBox) return;
@@ -169,11 +252,9 @@ function renderMines(showAll = false) {
       mine.classList.add("mine-active");
     }
 
-    // Активировать может только владелец в фазе раунда, если мина ещё не активна
     if (myRole === "miner" && currentPhase === "round" && isOwner && !isActive) {
       mine.onclick = () => {
         socket.emit("activateMine", { word: m.word });
-        // Класс добавится после события mineActivated
       };
     }
 
@@ -181,7 +262,7 @@ function renderMines(showAll = false) {
   });
 }
 
-/* MINE ACTIVATED (от сервера) */
+/* MINE ACTIVATED */
 socket.on("mineActivated", ({ mineKey }) => {
   if (!activeMineKeys.includes(mineKey)) {
     activeMineKeys.push(mineKey);
@@ -202,9 +283,6 @@ socket.on("roundEnd", (data) => {
   document.getElementById("word").innerText = currentRound?.word || "???";
   document.getElementById("explainerControls").style.display = "none";
 
-  const board = document.getElementById("scoreboard");
-  board.innerHTML = `<h3 class="mb-3">RESULTS</h3>` +
-    Object.entries(data.scores)
-      .map(([id, score]) => `<div class="score-item">${id}: ${score}</div>`)
-      .join("");
+  // Очки обновятся через playersUpdate
+  updateHostControls();
 });

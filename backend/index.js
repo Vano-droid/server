@@ -16,6 +16,14 @@ const io = new Server(server, {
 ========================= */
 const rooms = {};
 const timers = {};
+const pauseState = {}; // roomId -> { timeLeft, phase }
+
+// Словари слов
+const wordPacks = {
+  default: ["яблоко", "кот", "дом", "машина", "школа", "компьютер", "дерево", "река", "книга", "стул"],
+  animals: ["тигр", "дельфин", "слон", "попугай", "акула", "жираф", "панда", "змея", "орёл", "черепаха"],
+  tech: ["ноутбук", "дрон", "робот", "интернет", "смартфон", "наушники", "принтер", "камера", "чип", "сервер"]
+};
 
 /* =========================
    CREATE ROOM
@@ -27,14 +35,17 @@ function createRoom(roomId) {
 
     settings: {
       mineTime: 50,
-      guessTime: 50
+      guessTime: 50,
+      maxMines: 3,
+      wordPack: "default"
     },
 
     players: [],
     scores: {},
 
     round: null,
-    autoLoop: false
+    autoLoop: false,
+    paused: false
   };
 }
 
@@ -62,6 +73,23 @@ function pickRoles(players) {
   };
 }
 
+function getRandomWord(pack) {
+  const words = wordPacks[pack] || wordPacks.default;
+  return words[Math.floor(Math.random() * words.length)];
+}
+
+function sendPlayersUpdate(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+  const playersData = room.players.map(p => ({
+    id: p.id,
+    name: p.name,
+    score: room.scores[p.id] || 0,
+    isHost: p.id === room.hostId
+  }));
+  io.to(roomId).emit("playersUpdate", playersData);
+}
+
 /* =========================
    MINE PHASE
 ========================= */
@@ -75,7 +103,7 @@ function startMinePhase(roomId) {
   const { explainer, guesser } = pickRoles(players);
 
   room.round = {
-    word: "apple",
+    word: getRandomWord(room.settings.wordPack),
     explainerId: explainer.id,
     guesserId: guesser.id,
     mines: {},
@@ -83,9 +111,10 @@ function startMinePhase(roomId) {
   };
 
   room.state = "mine";
+  room.paused = false;
+  clearInterval(timers[roomId]);
 
   let t = room.settings.mineTime;
-  clearInterval(timers[roomId]);
 
   const explainerData = room.players.find(p => p.id === room.round?.explainerId);
   const guesserData = room.players.find(p => p.id === room.round?.guesserId);
@@ -101,6 +130,7 @@ function startMinePhase(roomId) {
   });
 
   timers[roomId] = setInterval(() => {
+    if (room.paused) return;
     t--;
     io.to(roomId).emit("timerUpdate", t);
     if (t <= 0) {
@@ -111,18 +141,19 @@ function startMinePhase(roomId) {
 }
 
 /* =========================
-   ROUND START (FIXED VIEW MODEL)
+   ROUND START
 ========================= */
 function startGuessPhase(roomId) {
   const room = rooms[roomId];
   if (!room || !room.round) return;
 
   room.state = "round";
+  room.paused = false;
+  clearInterval(timers[roomId]);
 
   const explainer = room.players.find(p => p.id === room.round.explainerId);
   const guesser = room.players.find(p => p.id === room.round.guesserId);
 
-  // Собираем мины в плоский массив
   const minesArray = [];
   for (const minerId in room.round.mines) {
     const words = room.round.mines[minerId];
@@ -155,6 +186,7 @@ function startGuessTimer(roomId) {
   clearInterval(timers[roomId]);
 
   timers[roomId] = setInterval(() => {
+    if (room.paused) return;
     t--;
     io.to(roomId).emit("timerUpdate", t);
     if (t <= 0) {
@@ -165,13 +197,14 @@ function startGuessTimer(roomId) {
 }
 
 /* =========================
-   END ROUND (SAFE)
+   END ROUND
 ========================= */
 function endRound(roomId, guessed) {
   const room = rooms[roomId];
   if (!room || !room.round) return;
 
   clearInterval(timers[roomId]);
+  room.paused = false;
 
   const round = room.round;
   const explainer = round.explainerId;
@@ -203,6 +236,8 @@ function endRound(roomId, guessed) {
   room.state = "results";
   room.round = null;
 
+  sendPlayersUpdate(roomId);
+
   setTimeout(() => {
     if (room.autoLoop) startMinePhase(roomId);
   }, 4000);
@@ -233,18 +268,15 @@ io.on("connection", (socket) => {
       room.hostId = socket.id;
     }
 
-    io.to(roomId).emit("playersUpdate", room.players);
+    sendPlayersUpdate(roomId);
   });
 
   socket.on("gameControl", (data) => {
-    console.log("GAME CONTROL:", data);
     const room = rooms[socket.data.roomId];
     if (!room) return;
-
     if (socket.id !== room.hostId) return;
-    console.log("ROOM FOUND:", room.state);
+
     if (data.action === "start") {
-      console.log("START PRESSED");
       room.autoLoop = true;
       startMinePhase(socket.data.roomId);
     }
@@ -255,11 +287,52 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("updateSettings", (newSettings) => {
+    const room = rooms[socket.data.roomId];
+    if (!room) return;
+    if (socket.id !== room.hostId) return;
+
+    if (newSettings.mineTime) room.settings.mineTime = Number(newSettings.mineTime);
+    if (newSettings.guessTime) room.settings.guessTime = Number(newSettings.guessTime);
+    if (newSettings.maxMines) room.settings.maxMines = Number(newSettings.maxMines);
+    if (newSettings.wordPack) room.settings.wordPack = newSettings.wordPack;
+
+    io.to(socket.data.roomId).emit("settingsUpdated", room.settings);
+  });
+
+  socket.on("skipPhase", () => {
+    const room = rooms[socket.data.roomId];
+    if (!room || !room.round) return;
+    if (socket.id !== room.hostId) return;
+
+    clearInterval(timers[socket.data.roomId]);
+
+    if (room.state === "mine") {
+      startGuessPhase(socket.data.roomId);
+    } else if (room.state === "round") {
+      endRound(socket.data.roomId, false);
+    }
+  });
+
+  socket.on("pauseResume", () => {
+    const room = rooms[socket.data.roomId];
+    if (!room) return;
+    if (socket.id !== room.hostId) return;
+
+    if (room.state === "lobby" || room.state === "results") return;
+
+    room.paused = !room.paused;
+    io.to(socket.data.roomId).emit("pauseToggled", room.paused);
+  });
+
   socket.on("submitMines", ({ words }) => {
     const room = rooms[socket.data.roomId];
     if (!room?.round) return;
 
-    room.round.mines[socket.id] = words;
+    // Ограничение по максимальному числу мин
+    const max = room.settings.maxMines || 3;
+    const limitedWords = words.slice(0, max);
+    room.round.mines[socket.id] = limitedWords;
   });
 
   socket.on("activateMine", ({ word }) => {
@@ -269,15 +342,11 @@ io.on("connection", (socket) => {
     const minerId = socket.id;
     const mineKey = `${minerId}:${word}`;
 
-    // Проверяем, что такая мина действительно есть у этого минёра
     const minerWords = room.round.mines[minerId];
     if (!minerWords || !minerWords.includes(word)) return;
-
-    // Уже активирована
     if (room.round.activeMines.has(mineKey)) return;
 
     room.round.activeMines.add(mineKey);
-
     io.to(socket.data.roomId).emit("mineActivated", {
       mineKey,
       word,
@@ -288,7 +357,6 @@ io.on("connection", (socket) => {
   socket.on("endRound", ({ guessed }) => {
     const room = rooms[socket.data.roomId];
     if (!room?.round) return;
-
     if (socket.id !== room.round.explainerId) return;
     endRound(socket.data.roomId, guessed);
   });
@@ -304,7 +372,7 @@ io.on("connection", (socket) => {
       room.hostId = room.players[0]?.id || null;
     }
 
-    io.to(socket.data.roomId).emit("playersUpdate", room.players);
+    sendPlayersUpdate(socket.data.roomId);
   });
 });
 

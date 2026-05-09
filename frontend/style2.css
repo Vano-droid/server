@@ -7,29 +7,25 @@ body{
 }
 
 /* LAYOUT */
-
 .game-layout{
   display:flex;
   height:100vh;
 }
 
 /* LEFT PANEL */
-
 .sidebar-left{
   width:240px;
   padding:20px;
 }
 
-.player-card{
+.player-item{
   background:#3a3a3a;
   border-radius:14px;
   padding:12px;
   margin-bottom:12px;
-
   display:flex;
   justify-content:space-between;
   align-items:center;
-
   border:2px solid #555;
 }
 
@@ -38,140 +34,27 @@ body{
   border-radius:50%;
   width:34px;
   height:34px;
-
   display:flex;
   align-items:center;
   justify-content:center;
+  font-weight:bold;
 }
 
 /* CENTER */
-
 .game-center{
   flex:1;
-
   display:flex;
   flex-direction:column;
   align-items:center;
   justify-content:flex-start;
-
   padding-top:40px;
 }
 
 /* ROLES */
-
 #rolesLine{
   margin-bottom:25px;
 }
 
-.role-wrapper{
-  display:flex;
-  align-items:center;
-  gap:30px;
-}
-
-.role-card{
-  background:#3a3a3a;
-  border-radius:30px;
-
-  padding:12px 28px;
-  min-width:180px;
-
-  text-align:center;
-}
-
-.role-label{
-  font-size:14px;
-  opacity:0.7;
-}
-
-/* WORD */
-
-.word{
-  font-size:54px;
-  font-weight:bold;
-
-  margin-top:20px;
-  margin-bottom:20px;
-
-  color:#ffae00;
-
-  text-shadow:
-    0 0 10px #ff9900,
-    0 0 20px #ff9900;
-}
-
-/* BUTTONS */
-
-#explainerControls{
-  display:flex;
-  gap:15px;
-  margin-top:10px;
-}
-
-#explainerControls button{
-  background:transparent;
-  border:2px solid orange;
-  color:orange;
-
-  border-radius:20px;
-  padding:8px 18px;
-
-  transition:.2s;
-}
-
-#explainerControls button:hover{
-  background:orange;
-  color:black;
-}
-
-/* MINES */
-
-.mines-grid{
-  margin-top:60px;
-
-  display:grid;
-  grid-template-columns:repeat(3, 140px);
-  gap:18px;
-}
-
-.mine{
-  width:140px;
-  height:140px;
-
-  background:#444;
-
-  border-radius:18px;
-
-  display:flex;
-  align-items:center;
-  justify-content:center;
-
-  font-size:24px;
-  font-weight:bold;
-
-  cursor:pointer;
-
-  transition:.2s;
-}
-
-.mine:hover{
-  transform:scale(1.05);
-}
-
-.mine.active{
-  background:#ff3c3c;
-  box-shadow:0 0 20px red;
-}
-
-/* TIMER */
-
-#timer{
-  position:fixed;
-  bottom:20px;
-  right:20px;
-
-  font-size:28px;
-}
 .roles-wrapper{
   display:flex;
   align-items:center;
@@ -212,6 +95,7 @@ body{
   color:#00ff88;
 }
 
+/* WORD */
 .word{
   font-size:48px;
   font-weight:900;
@@ -221,31 +105,57 @@ body{
     0 0 30px #ff6600;
 }
 
+/* EXPLAINER BUTTONS */
+#explainerControls{
+  display:flex;
+  gap:15px;
+  margin-top:10px;
+}
+#explainerControls button{
+  background:transparent;
+  border:2px solid orange;
+  color:orange;
+  border-radius:20px;
+  padding:8px 18px;
+  transition:.2s;
+}
+#explainerControls button:hover{
+  background:orange;
+  color:black;
+}
+
+/* MINES */
 .mine-card{
   display:inline-flex;
   align-items:center;
   justify-content:center;
-
   width:140px;
   height:90px;
-
   background:#2f2f2f;
   border-radius:16px;
-
   margin:10px;
-
   font-size:22px;
   font-weight:700;
-
   cursor:pointer;
   transition:.2s;
 }
-
 .mine-card:hover{
   transform:scale(1.05);
 }
-
 .mine-active{
   background:#ff4444;
   box-shadow:0 0 20px red;
+}
+
+/* TIMER */
+#timer{
+  position:fixed;
+  bottom:20px;
+  right:20px;
+  font-size:28px;
+}
+
+/* Настройки хоста */
+#settingsBtn {
+  font-size: 1.2rem;
 }
