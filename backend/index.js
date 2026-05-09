@@ -87,35 +87,22 @@ function startMinePhase(roomId) {
   let t = room.settings.mineTime;
   clearInterval(timers[roomId]);
 
-  // 🔥 ВАЖНО: отправляем роли УЖЕ СЕЙЧАС
-  const explainer =
-  room.players.find(
-    p => p.id === room.round?.explainerId
-  );
+  const explainerData = room.players.find(p => p.id === room.round?.explainerId);
+  const guesserData = room.players.find(p => p.id === room.round?.guesserId);
 
-const guesser =
-  room.players.find(
-    p => p.id === room.round?.guesserId
-  );
-
-io.to(roomId).emit("phaseChange", {
-  phase: "mine",
-  time: t,
-
-  word: room.round?.word,
-
-  explainerId: room.round?.explainerId,
-  guesserId: room.round?.guesserId,
-
-  explainerName: explainer?.name || "PLAYER",
-  guesserName: guesser?.name || "PLAYER"
-});
+  io.to(roomId).emit("phaseChange", {
+    phase: "mine",
+    time: t,
+    word: room.round?.word,
+    explainerId: room.round?.explainerId,
+    guesserId: room.round?.guesserId,
+    explainerName: explainerData?.name || "PLAYER",
+    guesserName: guesserData?.name || "PLAYER"
+  });
 
   timers[roomId] = setInterval(() => {
     t--;
-
     io.to(roomId).emit("timerUpdate", t);
-
     if (t <= 0) {
       clearInterval(timers[roomId]);
       startGuessPhase(roomId);
@@ -132,10 +119,26 @@ function startGuessPhase(roomId) {
 
   room.state = "round";
 
+  const explainer = room.players.find(p => p.id === room.round.explainerId);
+  const guesser = room.players.find(p => p.id === room.round.guesserId);
+
+  // Собираем мины в плоский массив
+  const minesArray = [];
+  for (const minerId in room.round.mines) {
+    const words = room.round.mines[minerId];
+    words.forEach(word => {
+      minesArray.push({ minerId, word });
+    });
+  }
+
   io.to(roomId).emit("roundStart", {
     word: room.round.word,
     explainerId: room.round.explainerId,
-    guesserId: room.round.guesserId
+    guesserId: room.round.guesserId,
+    explainerName: explainer?.name || "PLAYER",
+    guesserName: guesser?.name || "PLAYER",
+    mines: minesArray,
+    activeMines: [...room.round.activeMines]
   });
 
   startGuessTimer(roomId);
@@ -149,14 +152,11 @@ function startGuessTimer(roomId) {
   if (!room) return;
 
   let t = room.settings.guessTime;
-
   clearInterval(timers[roomId]);
 
   timers[roomId] = setInterval(() => {
     t--;
-
     io.to(roomId).emit("timerUpdate", t);
-
     if (t <= 0) {
       clearInterval(timers[roomId]);
       endRound(roomId, false);
@@ -174,7 +174,6 @@ function endRound(roomId, guessed) {
   clearInterval(timers[roomId]);
 
   const round = room.round;
-
   const explainer = round.explainerId;
   const guesser = round.guesserId;
 
@@ -187,9 +186,9 @@ function endRound(roomId, guessed) {
 
   for (const minerId in round.mines) {
     const mines = round.mines[minerId] || [];
-
     for (const m of mines) {
-      if (round.activeMines?.has(m)) {
+      const mineKey = `${minerId}:${m}`;
+      if (round.activeMines.has(mineKey)) {
         room.scores[minerId] = (room.scores[minerId] || 0) + 5;
         room.scores[explainer] -= 3;
       }
@@ -218,18 +217,15 @@ io.on("connection", (socket) => {
     if (!rooms[roomId]) createRoom(roomId);
 
     const room = rooms[roomId];
-
     socket.join(roomId);
-
     socket.data.roomId = roomId;
     socket.data.name = name;
 
     room.players = room.players.filter(p => p.id !== socket.id);
-
-room.players.push({
-  id: socket.id,
-  name
-});
+    room.players.push({
+      id: socket.id,
+      name
+    });
 
     room.scores[socket.id] ??= 0;
 
@@ -270,7 +266,23 @@ room.players.push({
     const room = rooms[socket.data.roomId];
     if (!room?.round) return;
 
-    room.round.activeMines.add(word);
+    const minerId = socket.id;
+    const mineKey = `${minerId}:${word}`;
+
+    // Проверяем, что такая мина действительно есть у этого минёра
+    const minerWords = room.round.mines[minerId];
+    if (!minerWords || !minerWords.includes(word)) return;
+
+    // Уже активирована
+    if (room.round.activeMines.has(mineKey)) return;
+
+    room.round.activeMines.add(mineKey);
+
+    io.to(socket.data.roomId).emit("mineActivated", {
+      mineKey,
+      word,
+      minerId
+    });
   });
 
   socket.on("endRound", ({ guessed }) => {
@@ -278,7 +290,6 @@ room.players.push({
     if (!room?.round) return;
 
     if (socket.id !== room.round.explainerId) return;
-
     endRound(socket.data.roomId, guessed);
   });
 
