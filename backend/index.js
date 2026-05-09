@@ -29,7 +29,7 @@ function createRoom(roomId) {
       guessTime: 50,
       maxMines: 3,
       wordPack: "default",
-      winScore: 30          // новое
+      winScore: 30
     },
     players: [],
     scores: {},
@@ -119,7 +119,7 @@ function startGuessPhase(roomId) {
   const room = rooms[roomId];
   if (!room || !room.round) return;
   room.state = "round";
-  room.paused = false;               // сбрасываем паузу при старте фазы
+  room.paused = false;
   clearInterval(timers[roomId]);
 
   const explainer = room.players.find(p => p.id === room.round.explainerId);
@@ -199,7 +199,6 @@ function endRound(roomId, guessed) {
   room.round = null;
   sendPlayersUpdate(roomId);
 
-  // Проверка победы
   const winScore = room.settings.winScore || 30;
   let winnerId = null;
   for (const id in room.scores) {
@@ -210,7 +209,6 @@ function endRound(roomId, guessed) {
   }
 
   if (winnerId) {
-    // Игра окончена
     room.autoLoop = false;
     const winner = room.players.find(p => p.id === winnerId);
     io.to(roomId).emit("gameOver", {
@@ -219,11 +217,9 @@ function endRound(roomId, guessed) {
       scores: room.scores
     });
     room.state = "finished";
-    // дополнительно отправим обновление фазы (скроем управление)
     io.to(roomId).emit("phaseChange", { phase: "finished", time: 0 });
     sendPlayersUpdate(roomId);
   } else {
-    // Следующий раунд
     setTimeout(() => {
       if (room.autoLoop && room.state === "results") {
         startMinePhase(roomId);
@@ -245,7 +241,6 @@ function restartGame(roomId) {
   room.autoLoop = false;
   room.paused = false;
 
-  // Обнуляем очки всем
   for (const p of room.players) {
     room.scores[p.id] = 0;
   }
@@ -282,10 +277,8 @@ io.on("connection", (socket) => {
     const room = rooms[socket.data.roomId];
     if (!room || socket.id !== room.hostId) return;
     if (data.action === "start") {
-      // Разрешаем старт только из лобби или finished
       if (room.state === "lobby" || room.state === "finished") {
         room.autoLoop = true;
-        // сбрасываем finished в lobby визуально
         if (room.state === "finished") room.state = "lobby";
         startMinePhase(socket.data.roomId);
       }
@@ -335,8 +328,13 @@ io.on("connection", (socket) => {
   socket.on("submitMines", ({ words }) => {
     const room = rooms[socket.data.roomId];
     if (!room?.round) return;
+
+    // Добавляем новые мины к уже имеющимся для этого минёра
+    const existing = room.round.mines[socket.id] || [];
+    const combined = existing.concat(words);
     const max = room.settings.maxMines || 3;
-    room.round.mines[socket.id] = words.slice(0, max);
+    // Оставляем только первые max слов
+    room.round.mines[socket.id] = combined.slice(0, max);
   });
 
   socket.on("activateMine", ({ word }) => {

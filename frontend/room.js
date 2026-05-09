@@ -11,7 +11,8 @@ let myRole = null;
 
 let allMines = [];
 let activeMineKeys = [];
-let submittedMines = false;
+
+let maxMines = 3; // значение по умолчанию, обновится через settingsUpdated
 
 function init() {
   const params = new URLSearchParams(window.location.search);
@@ -34,7 +35,6 @@ function togglePause() {
 }
 
 function openSettings() {
-  // Перед открытием подгрузим актуальные значения (если есть)
   const modal = new bootstrap.Modal(document.getElementById('settingsModal'));
   modal.show();
 }
@@ -42,10 +42,10 @@ function openSettings() {
 function saveSettings() {
   const mineTime = document.getElementById('setMineTime').value;
   const guessTime = document.getElementById('setGuessTime').value;
-  const maxMines = document.getElementById('setMaxMines').value;
+  const maxMinesVal = document.getElementById('setMaxMines').value;
   const wordPack = document.getElementById('setWordPack').value;
   const winScore = document.getElementById('setWinScore').value;
-  socket.emit("updateSettings", { mineTime, guessTime, maxMines, wordPack, winScore });
+  socket.emit("updateSettings", { mineTime, guessTime, maxMines: maxMinesVal, wordPack, winScore });
   bootstrap.Modal.getInstance(document.getElementById('settingsModal')).hide();
 }
 
@@ -78,13 +78,11 @@ function renderRoundUI(data) {
     </div>`;
   controlsEl.style.display = (currentPhase === "round" && isExplainer) ? "block" : "none";
 
-  if (isMiner && currentPhase === "mine" && !submittedMines) {
-    mineInput.style.display = "block";
-    mineBtn.style.display = "inline-block";
-  } else {
-    mineInput.style.display = "none";
-    mineBtn.style.display = "none";
-  }
+  // Показ поля ввода мин для минёра
+  const myMinesCount = allMines.filter(m => m.minerId === socket.id).length;
+  const canStillMine = isMiner && currentPhase === "mine" && myMinesCount < maxMines;
+  mineInput.style.display = canStillMine ? "block" : "none";
+  mineBtn.style.display = canStillMine ? "inline-block" : "none";
 
   updateHostControls();
 }
@@ -107,10 +105,8 @@ function updateHostControls() {
   const isLobbyOrFinished = currentPhase === "lobby" || currentPhase === "finished";
   const isPausedNow = activeGamePhases.includes(currentPhase) && isPaused;
 
-  // Старт только в лобби/finished
   startBtn.style.display = (currentPhase === "lobby" || currentPhase === "finished") ? "inline-block" : "none";
 
-  // Skip и Pause только в mine/round и не на паузе (skip) / pause всегда показываем в этих фазах
   if (activeGamePhases.includes(currentPhase)) {
     skipBtn.style.display = isPaused ? "none" : "inline-block";
     pauseBtn.style.display = "inline-block";
@@ -128,7 +124,6 @@ function updateHostControls() {
     pauseBtn.style.display = "none";
   }
 
-  // Настройки: показываем, если лобби, finished, или пауза в mine/round
   settingsBtn.style.display = (isLobbyOrFinished || isPausedNow) ? "inline-block" : "none";
 }
 
@@ -139,7 +134,7 @@ socket.on("phaseChange", (data) => {
   document.getElementById("timer").innerText = data.time ? "⏱ " + data.time : "";
 
   if (data.phase === "mine") {
-    submittedMines = false;
+    // Сброс мин при новой фазе минирования
     allMines = [];
     activeMineKeys = [];
     document.getElementById("mineInput").value = "";
@@ -189,6 +184,17 @@ socket.on("settingsUpdated", (settings) => {
   document.getElementById('setMaxMines').value = settings.maxMines || 3;
   document.getElementById('setWordPack').value = settings.wordPack || "default";
   document.getElementById('setWinScore').value = settings.winScore || 30;
+  // Обновляем локальный лимит
+  maxMines = settings.maxMines || 3;
+  // Если мы в фазе mine, перепроверим видимость поля ввода
+  if (currentPhase === "mine" && myRole === "miner") {
+    const mineInput = document.getElementById("mineInput");
+    const mineBtn = document.getElementById("sendMineBtn");
+    const myMines = allMines.filter(m => m.minerId === socket.id).length;
+    const canMine = myMines < maxMines;
+    mineInput.style.display = canMine ? "block" : "none";
+    mineBtn.style.display = canMine ? "inline-block" : "none";
+  }
 });
 
 socket.on("gameOver", (data) => {
@@ -201,7 +207,6 @@ socket.on("gameOver", (data) => {
 socket.on("gameRestarted", () => {
   currentPhase = "lobby";
   isPaused = false;
-  submittedMines = false;
   allMines = [];
   activeMineKeys = [];
   currentRound = null;
@@ -220,15 +225,49 @@ socket.on("gameRestarted", () => {
 /* --- Мины --- */
 function sendMines() {
   if (myRole !== "miner") return;
+
   const input = document.getElementById("mineInput");
   const value = input.value.trim();
   if (!value) return;
-  const mineWords = value.split(",").map(w => w.trim()).filter(Boolean);
-  socket.emit("submitMines", { words: mineWords });
-  submittedMines = true;
-  input.style.display = "none";
-  document.getElementById("sendMineBtn").style.display = "none";
-  mineWords.forEach(word => allMines.push({ minerId: socket.id, word }));
+
+  // Считаем, сколько мин у нас уже есть
+  const myCurrentMines = allMines.filter(m => m.minerId === socket.id).length;
+  const remaining = maxMines - myCurrentMines;
+  if (remaining <= 0) {
+    // На всякий случай скрываем, если лимит исчерпан
+    input.style.display = "none";
+    document.getElementById("sendMineBtn").style.display = "none";
+    return;
+  }
+
+  // Разбиваем ввод, но берём только нужное количество слов
+  const words = value.split(",").map(w => w.trim()).filter(Boolean);
+  const wordsToSend = words.slice(0, remaining);
+
+  if (wordsToSend.length === 0) return;
+
+  // Отправляем на сервер
+  socket.emit("submitMines", { words: wordsToSend });
+
+  // Добавляем локально для отображения
+  wordsToSend.forEach(word => {
+    allMines.push({ minerId: socket.id, word });
+  });
+
+  // Очищаем поле ввода (чтобы удобнее было вводить следующую партию)
+  input.value = "";
+
+  // Проверяем, достигнут ли теперь лимит
+  const newCount = allMines.filter(m => m.minerId === socket.id).length;
+  if (newCount >= maxMines) {
+    input.style.display = "none";
+    document.getElementById("sendMineBtn").style.display = "none";
+  } else {
+    // Оставляем поле видимым для дальнейшего ввода
+    input.style.display = "block";
+    document.getElementById("sendMineBtn").style.display = "inline-block";
+  }
+
   renderMines();
 }
 
@@ -237,6 +276,7 @@ function renderMines(showAll = false) {
   if (!box) return;
   box.innerHTML = "";
   if (!allMines.length) return;
+
   allMines.forEach(m => {
     const mine = document.createElement("div");
     mine.className = "mine-card";
