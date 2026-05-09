@@ -1,193 +1,186 @@
-body{
-  margin:0;
-  background:#1d1d1d;
-  color:white;
-  font-family:Arial;
-  overflow-x:hidden; /* разрешим вертикальный скролл при необходимости */
+body {
+  margin: 0;
+  background: #1d1d1d;
+  color: white;
+  font-family: Arial;
+  overflow-x: hidden;
 }
 
-/* LAYOUT */
-.game-layout{
-  display:flex;
-  height:100vh;
+/* ГЛАВНЫЙ FLEX-КОНТЕЙНЕР */
+.game-layout {
+  display: flex;
+  height: calc(100vh - 100px); /* вычитаем высоту phase + topbar */
+  overflow: hidden;
 }
 
-/* LEFT PANEL */
-.sidebar-left{
-  width:240px;
-  padding:20px;
-  overflow-y:auto;
+/* ЛЕВАЯ ПАНЕЛЬ (игроки) */
+.sidebar-left {
+  width: 240px;
+  padding: 15px;
+  overflow-y: auto;
+  border-right: 1px solid #333;
 }
 
-.player-item{
-  background:#3a3a3a;
-  border-radius:14px;
-  padding:12px;
-  margin-bottom:12px;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  border:2px solid #555;
+.player-item {
+  background: #3a3a3a;
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 2px solid #555;
 }
 
-.player-score{
-  background:#222;
-  border-radius:50%;
-  width:34px;
-  height:34px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-weight:bold;
+.player-score {
+  background: #222;
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
 }
 
-/* CENTER */
-.game-center{
-  flex:1;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:flex-start;
-  padding-top:40px;
+/* ЦЕНТРАЛЬНАЯ ОБЛАСТЬ */
+.game-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 20px;
+  overflow-y: auto;
 }
 
-/* ROLES */
-#rolesLine{
-  margin-bottom:25px;
+/* РОЛИ */
+.roles-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  margin-bottom: 20px;
 }
 
-.roles-wrapper{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:30px;
-  margin-bottom:20px;
+.player-card {
+  background: #2b2b2b;
+  border-radius: 18px;
+  padding: 14px 28px;
+  min-width: 180px;
+  text-align: center;
+  box-shadow: 0 0 20px rgba(0,0,0,.4);
 }
 
-.player-card{
-  background:#2b2b2b;
-  border-radius:18px;
-  padding:14px 28px;
-  min-width:180px;
-  text-align:center;
-  box-shadow:0 0 20px rgba(0,0,0,.4);
+.player-name {
+  font-size: 24px;
+  font-weight: 700;
+  color: white;
 }
 
-.player-name{
-  font-size:24px;
-  font-weight:700;
-  color:white;
+.player-role {
+  color: #aaa;
+  margin-top: 4px;
 }
 
-.player-role{
-  color:#aaa;
-  margin-top:4px;
+.vs-circle {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  color: #00ff88;
 }
 
-.vs-circle{
-  width:70px;
-  height:70px;
-  border-radius:50%;
-  background:#333;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:30px;
-  color:#00ff88;
+/* СЛОВО */
+.word {
+  font-size: 48px;
+  font-weight: 900;
+  color: #ffae00;
+  text-shadow: 0 0 10px #ff9900, 0 0 30px #ff6600;
+  margin: 20px 0;
 }
 
-/* WORD */
-.word{
-  font-size:48px;
-  font-weight:900;
-  color:#ffae00;
-  text-shadow:
-    0 0 10px #ff9900,
-    0 0 30px #ff6600;
+/* КНОПКИ ОБЪЯСНЯЮЩЕГО */
+#explainerControls {
+  display: flex;
+  gap: 15px;
+  margin-top: 10px;
 }
 
-/* EXPLAINER BUTTONS */
-#explainerControls{
-  display:flex;
-  gap:15px;
-  margin-top:10px;
-}
-#explainerControls button{
-  background:transparent;
-  border:2px solid orange;
-  color:orange;
-  border-radius:20px;
-  padding:8px 18px;
-  transition:.2s;
-}
-#explainerControls button:hover{
-  background:orange;
-  color:black;
+#explainerControls button {
+  background: transparent;
+  border: 2px solid orange;
+  color: orange;
+  border-radius: 20px;
+  padding: 8px 18px;
+  transition: .2s;
 }
 
-/* MINES */
-.mine-card{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  width:140px;
-  height:90px;
-  background:#2f2f2f;
-  border-radius:16px;
-  margin:10px;
-  font-size:22px;
-  font-weight:700;
-  cursor:pointer;
-  transition:.2s;
-}
-.mine-card:hover{
-  transform:scale(1.05);
-}
-.mine-active{
-  background:#ff4444;
-  box-shadow:0 0 20px red;
+#explainerControls button:hover {
+  background: orange;
+  color: black;
 }
 
-/* TIMER */
-#timer{
+/* МИНЫ */
+.mine-card {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 140px;
+  height: 90px;
+  background: #2f2f2f;
+  border-radius: 16px;
+  margin: 10px;
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: .2s;
+}
+
+.mine-card:hover {
+  transform: scale(1.05);
+}
+
+.mine-active {
+  background: #ff4444;
+  box-shadow: 0 0 20px red;
+}
+
+/* ТАЙМЕР (встроен в phase) */
+#timer {
   font-size: 1.5rem;
   vertical-align: middle;
 }
 
-/* Настройки хоста */
+/* КНОПКА НАСТРОЕК */
 #settingsBtn {
   font-size: 1.2rem;
 }
 
-/* ========= АДАПТИВ ДЛЯ МОБИЛЬНЫХ ========= */
+/* ========= МОБИЛЬНАЯ ВЕРСИЯ ========= */
 @media (max-width: 768px) {
-  body {
-    overflow-y: auto; /* разрешить вертикальный скролл */
+  .game-layout {
+    flex-direction: column;
+    height: auto;
   }
 
-  /* Верхняя панель с кнопками */
-  .topbar {
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 5px;
-  }
-  .topbar .btn {
-    font-size: 0.9rem;
-    padding: 4px 8px;
-  }
-
-  /* Боковая панель с игроками — теперь горизонтальная полоса */
   .sidebar-left {
     width: 100%;
-    max-height: 100px;
+    max-height: 120px;
     overflow-x: auto;
     overflow-y: hidden;
     display: flex;
     flex-direction: row;
     gap: 8px;
     padding: 8px;
-    margin-bottom: 10px;
+    border-right: none;
+    border-bottom: 1px solid #333;
   }
+
   .sidebar-left .player-item {
     min-width: 90px;
     flex-shrink: 0;
@@ -195,43 +188,41 @@ body{
     font-size: 0.9rem;
     margin-bottom: 0;
   }
+
   .player-score {
     width: 28px;
     height: 28px;
     font-size: 0.8rem;
   }
 
-  /* Центральная область */
   .game-center {
-    padding-top: 10px;
-    padding-left: 5px;
-    padding-right: 5px;
+    padding: 15px;
   }
 
-  /* Слово */
   .word {
     font-size: 32px;
   }
 
-  /* Роли */
   .roles-wrapper {
     flex-wrap: wrap;
     gap: 15px;
   }
+
   .player-card {
     min-width: 120px;
     padding: 10px 15px;
   }
+
   .player-name {
     font-size: 18px;
   }
+
   .vs-circle {
     width: 50px;
     height: 50px;
     font-size: 22px;
   }
 
-  /* Мины */
   .mine-card {
     width: 100px;
     height: 70px;
@@ -239,18 +230,28 @@ body{
     margin: 5px;
   }
 
-  /* Поле ввода мин */
-  #mineInput {
+  #mineInput.w-50 {
     width: 80% !important;
   }
 
-  /* Кнопки объясняющего */
   #explainerControls {
     flex-wrap: wrap;
     justify-content: center;
   }
+
   #explainerControls button {
     padding: 6px 14px;
     font-size: 0.9rem;
+  }
+
+  .topbar {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .topbar .btn {
+    font-size: 0.8rem;
+    padding: 4px 8px;
+    margin: 2px;
   }
 }
