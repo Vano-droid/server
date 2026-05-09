@@ -31,7 +31,7 @@
   <div id="rolesLine"></div>
   <div id="word" class="word">WAITING...</div>
 
-  <div id="explainerControls">
+  <div id="explainerControls" style="display: none;">
     <button onclick="endRound(true)">Слово угадано!</button>
     <button onclick="endRound(false)">Слово не угадано!</button>
   </div>
@@ -41,8 +41,8 @@
   <div id="mineBox" class="mt-4 d-flex flex-wrap gap-3 justify-content-center"></div>
 
   <div class="mt-3">
-    <input id="mineInput" class="form-control w-50 mx-auto" placeholder="mine words">
-    <button id="sendMineBtn" class="btn btn-warning mt-2" onclick="sendMines()">Заминировать слово</button>
+    <input id="mineInput" class="form-control w-50 mx-auto" placeholder="mine words" style="display: none;">
+    <button id="sendMineBtn" class="btn btn-warning mt-2" onclick="sendMines()" style="display: none;">Заминировать слово</button>
   </div>
 </div>
 

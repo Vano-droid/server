@@ -3,7 +3,7 @@ body{
   background:#1d1d1d;
   color:white;
   font-family:Arial;
-  overflow:hidden;
+  overflow-x:hidden; /* разрешим вертикальный скролл при необходимости */
 }
 
 /* LAYOUT */
@@ -16,6 +16,7 @@ body{
 .sidebar-left{
   width:240px;
   padding:20px;
+  overflow-y:auto;
 }
 
 .player-item{
@@ -148,7 +149,7 @@ body{
 }
 
 /* TIMER */
-#timer {
+#timer{
   font-size: 1.5rem;
   vertical-align: middle;
 }
@@ -156,4 +157,100 @@ body{
 /* Настройки хоста */
 #settingsBtn {
   font-size: 1.2rem;
+}
+
+/* ========= АДАПТИВ ДЛЯ МОБИЛЬНЫХ ========= */
+@media (max-width: 768px) {
+  body {
+    overflow-y: auto; /* разрешить вертикальный скролл */
+  }
+
+  /* Верхняя панель с кнопками */
+  .topbar {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 5px;
+  }
+  .topbar .btn {
+    font-size: 0.9rem;
+    padding: 4px 8px;
+  }
+
+  /* Боковая панель с игроками — теперь горизонтальная полоса */
+  .sidebar-left {
+    width: 100%;
+    max-height: 100px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    padding: 8px;
+    margin-bottom: 10px;
+  }
+  .sidebar-left .player-item {
+    min-width: 90px;
+    flex-shrink: 0;
+    padding: 6px 10px;
+    font-size: 0.9rem;
+    margin-bottom: 0;
+  }
+  .player-score {
+    width: 28px;
+    height: 28px;
+    font-size: 0.8rem;
+  }
+
+  /* Центральная область */
+  .game-center {
+    padding-top: 10px;
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+
+  /* Слово */
+  .word {
+    font-size: 32px;
+  }
+
+  /* Роли */
+  .roles-wrapper {
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+  .player-card {
+    min-width: 120px;
+    padding: 10px 15px;
+  }
+  .player-name {
+    font-size: 18px;
+  }
+  .vs-circle {
+    width: 50px;
+    height: 50px;
+    font-size: 22px;
+  }
+
+  /* Мины */
+  .mine-card {
+    width: 100px;
+    height: 70px;
+    font-size: 16px;
+    margin: 5px;
+  }
+
+  /* Поле ввода мин */
+  #mineInput {
+    width: 80% !important;
+  }
+
+  /* Кнопки объясняющего */
+  #explainerControls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  #explainerControls button {
+    padding: 6px 14px;
+    font-size: 0.9rem;
+  }
 }
