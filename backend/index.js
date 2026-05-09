@@ -160,7 +160,7 @@ function startGuessTimer(roomId) {
 }
 
 /* =========================
-   END ROUND + CHECK WIN
+   END ROUND (исправленная логика очков)
 ========================= */
 function endRound(roomId, guessed) {
   const room = rooms[roomId];
@@ -175,20 +175,32 @@ function endRound(roomId, guessed) {
   room.scores[explainer] ??= 0;
   room.scores[guesser] ??= 0;
 
-  if (guessed) {
-    room.scores[guesser] += 5;
-  }
+  const anyMineActivated = round.activeMines.size > 0;
 
+  // 1. Штрафы и бонусы за мины (всегда, если активированы)
   for (const minerId in round.mines) {
     const mines = round.mines[minerId] || [];
     for (const m of mines) {
       const mineKey = `${minerId}:${m}`;
       if (round.activeMines.has(mineKey)) {
+        // Минёр получает +5
         room.scores[minerId] = (room.scores[minerId] || 0) + 5;
+        // Объясняющий получает -3
         room.scores[explainer] -= 3;
       }
     }
   }
+
+  // 2. Результат раунда (угадано / не угадано)
+  if (guessed) {
+    // Отгадывающий всегда +5
+    room.scores[guesser] += 5;
+    // Объясняющий +5 только если ни одна мина не взорвалась
+    if (!anyMineActivated) {
+      room.scores[explainer] += 5;
+    }
+  }
+  // Если не угадано – дополнительных очков никому (кроме уже учтённых мин)
 
   io.to(roomId).emit("roundEnd", {
     scores: room.scores,
@@ -199,6 +211,7 @@ function endRound(roomId, guessed) {
   room.round = null;
   sendPlayersUpdate(roomId);
 
+  // Проверка победы
   const winScore = room.settings.winScore || 30;
   let winnerId = null;
   for (const id in room.scores) {
@@ -329,11 +342,9 @@ io.on("connection", (socket) => {
     const room = rooms[socket.data.roomId];
     if (!room?.round) return;
 
-    // Добавляем новые мины к уже имеющимся для этого минёра
     const existing = room.round.mines[socket.id] || [];
     const combined = existing.concat(words);
     const max = room.settings.maxMines || 3;
-    // Оставляем только первые max слов
     room.round.mines[socket.id] = combined.slice(0, max);
   });
 
