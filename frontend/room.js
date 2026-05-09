@@ -119,37 +119,36 @@ function updateHostControls() {
   const settingsBtn = document.getElementById("settingsBtn");
   const startBtn = document.getElementById("startBtn");
 
+  // Для не-хостов скрываем все управляющие кнопки
   if (!isHost) {
     skipBtn.style.display = "none";
     pauseBtn.style.display = "none";
     settingsBtn.style.display = "none";
-    return;
+    startBtn.style.display = "none";   // <-- явно скрываем Start
+    return; // дальше не идём, т.к. остальное только для хоста
   }
 
+  // Далее код только для хоста:
   const activeGamePhases = ["mine", "round"];
-  const isActive = activeGamePhases.includes(currentPhase) && !isPaused;
   const isLobbyOrFinished = currentPhase === "lobby" || currentPhase === "finished";
   const isPausedNow = activeGamePhases.includes(currentPhase) && isPaused;
 
-  startBtn.style.display = (currentPhase === "lobby" || currentPhase === "finished") ? "inline-block" : "none";
+  // Кнопка Start: только в лобби или после завершения игры
+  startBtn.style.display = isLobbyOrFinished ? "inline-block" : "none";
 
+  // Кнопки Skip и Pause только в фазах mine/round
   if (activeGamePhases.includes(currentPhase)) {
     skipBtn.style.display = isPaused ? "none" : "inline-block";
     pauseBtn.style.display = "inline-block";
-    if (isPaused) {
-      pauseBtn.innerText = "Resume";
-      pauseBtn.classList.remove('btn-info');
-      pauseBtn.classList.add('btn-danger');
-    } else {
-      pauseBtn.innerText = "Pause";
-      pauseBtn.classList.remove('btn-danger');
-      pauseBtn.classList.add('btn-info');
-    }
+    pauseBtn.innerText = isPaused ? "Resume" : "Pause";
+    pauseBtn.classList.toggle('btn-danger', isPaused);
+    pauseBtn.classList.toggle('btn-info', !isPaused);
   } else {
     skipBtn.style.display = "none";
     pauseBtn.style.display = "none";
   }
 
+  // Настройки: показываем, если лобби/finished или пауза в игровых фазах
   settingsBtn.style.display = (isLobbyOrFinished || isPausedNow) ? "inline-block" : "none";
 }
 
