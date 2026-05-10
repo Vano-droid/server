@@ -2220,7 +2220,17 @@ io.on("connection", (socket) => {
     room.round.activeMines.add(mineKey);
     io.to(socket.data.roomId).emit("mineActivated", { mineKey, word, minerId });
   });
-
+  socket.on("deactivateMine", ({ word }) => {
+  const room = rooms[socket.data.roomId];
+  if (!room?.round) return;
+  const minerId = socket.id;
+  const mineKey = `${minerId}:${word}`;
+  const minerWords = room.round.mines[minerId];
+  if (!minerWords || !minerWords.includes(word)) return;
+  if (!room.round.activeMines.has(mineKey)) return; // уже не активна
+  room.round.activeMines.delete(mineKey);
+  io.to(socket.data.roomId).emit("mineDeactivated", { mineKey, word, minerId });
+});
   socket.on("endRound", ({ guessed }) => {
     const room = rooms[socket.data.roomId];
     if (!room?.round || socket.id !== room.round.explainerId) return;
