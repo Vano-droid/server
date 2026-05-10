@@ -128,8 +128,9 @@ body {
 /* МИНЫ */
 .mine-card {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;      /* элементы в колонку */
+  align-items: center;         /* центрирование по горизонтали */
+  justify-content: center;     /* центрирование по вертикали */
   width: 140px;
   height: 90px;
   background: #2f2f2f;
@@ -139,8 +140,15 @@ body {
   font-weight: 700;
   cursor: pointer;
   transition: .2s;
+  text-align: center;
 }
 
+.mine-author {
+  font-size: 0.7rem;
+  color: #aaa;
+  margin-top: 4px;
+  display: block; /* не обязательно, но для ясности */
+}
 .mine-card:hover {
   transform: scale(1.05);
 }
@@ -160,13 +168,7 @@ body {
 #settingsBtn {
   font-size: 1.2rem;
 }
-.mine-author {
-  font-size: 0.7rem;
-  color: #aaa;
-  margin-top: 2px;
-  text-align: center;
-  line-height: 1;
-}
+
 /* ========= МОБИЛЬНАЯ ВЕРСИЯ ========= */
 @media (max-width: 768px) {
   .game-layout {
