@@ -160,7 +160,13 @@ body {
 #settingsBtn {
   font-size: 1.2rem;
 }
-
+.mine-author {
+  font-size: 0.7rem;
+  color: #aaa;
+  margin-top: 2px;
+  text-align: center;
+  line-height: 1;
+}
 /* ========= МОБИЛЬНАЯ ВЕРСИЯ ========= */
 @media (max-width: 768px) {
   .game-layout {
