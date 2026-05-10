@@ -2,12 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Game Room</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="style2.css">
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
+<body onload="init()" class="bg-dark text-light">
+
 <body onload="init()" class="bg-dark text-light">
 
 <!-- PHASE + TIMER -->
@@ -26,7 +28,7 @@
   <button class="btn btn-sm btn-outline-light" onclick="openSettings()" id="settingsBtn" title="Settings">⚙️</button>
 </div>
 
-<!-- ОСНОВНОЙ КОНТЕЙНЕР -->
+<!-- ОСНОВНОЙ КОНТЕЙНЕР (flex) -->
 <div class="game-layout">
   <!-- PLAYERS -->
   <div class="sidebar-left">
@@ -78,22 +80,13 @@
         <div class="mb-3">
           <label class="form-label">Word pack</label>
           <select id="setWordPack" class="form-control">
-            <!-- filled dynamically -->
+            <!--Автомат-->
           </select>
         </div>
         <div class="mb-3">
           <label class="form-label">Points to win</label>
           <input type="number" id="setWinScore" class="form-control" min="10" max="200">
         </div>
-        <hr>
-        <h6>Create custom word pack</h6>
-        <div class="mb-2">
-          <input type="text" id="newPackName" class="form-control" placeholder="Pack name">
-        </div>
-        <div class="mb-2">
-          <input type="text" id="newPackWords" class="form-control" placeholder="Words (comma separated)">
-        </div>
-        <button class="btn btn-outline-info btn-sm w-100 mb-3" onclick="addCustomPack()">Add Pack</button>
         <hr>
         <button class="btn btn-danger w-100" onclick="restartGame()">Restart Game</button>
       </div>

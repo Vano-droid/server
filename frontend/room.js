@@ -11,8 +11,9 @@ let myRole = null;
 
 let allMines = [];
 let activeMineKeys = [];
-let maxMines = 3;
-let availablePacks = [];
+
+let maxMines = 3; // значение по умолчанию, обновится через settingsUpdated
+let availablePacks = []; // массив названий всех доступных паков
 
 function init() {
   const params = new URLSearchParams(window.location.search);
@@ -33,48 +34,35 @@ function skipPhase() {
 function togglePause() {
   socket.emit("pauseResume");
 }
-
-function openSettings() {
-  updatePackSelect();
-  const modal = new bootstrap.Modal(document.getElementById('settingsModal'));
-  modal.show();
-}
-
 function updatePackSelect() {
   const select = document.getElementById('setWordPack');
   if (!select) return;
+
   const currentValue = select.value;
-  select.innerHTML = '';
+  select.innerHTML = ''; // очищаем
+
   availablePacks.forEach(pack => {
     const option = document.createElement('option');
     option.value = pack;
     option.textContent = pack;
     select.appendChild(option);
   });
+
+  // Восстановим выбор, если он есть в списке
   if (availablePacks.includes(currentValue)) {
     select.value = currentValue;
   } else if (availablePacks.length > 0) {
     select.value = availablePacks[0];
   }
 }
-
-function addCustomPack() {
-  const nameInput = document.getElementById('newPackName');
-  const wordsInput = document.getElementById('newPackWords');
-  const name = nameInput.value.trim();
-  const wordsStr = wordsInput.value.trim();
-  if (!name || !wordsStr) {
-    alert("Введите название пакета и слова через запятую");
-    return;
-  }
-  const words = wordsStr.split(',').map(w => w.trim()).filter(Boolean);
-  if (words.length === 0) {
-    alert("Добавьте хотя бы одно слово");
-    return;
-  }
-  socket.emit("addCustomPack", { name, words });
-  nameInput.value = '';
-  wordsInput.value = '';
+function openSettings() {
+  const modal = new bootstrap.Modal(document.getElementById('settingsModal'));
+  function openSettings() {
+  updatePackSelect(); // обновим селект перед открытием
+  const modal = new bootstrap.Modal(document.getElementById('settingsModal'));
+  modal.show();
+}
+  modal.show();
 }
 
 function saveSettings() {
@@ -107,7 +95,7 @@ function renderRoundUI(data) {
   const isMiner = !isExplainer && !isGuesser;
   myRole = isExplainer ? "explainer" : isGuesser ? "guesser" : "miner";
 
-  wordEl.innerText = isGuesser ? "██████" : data.word;
+  wordEl.innerText = isGuesser ? "*****" : data.word;
   rolesEl.innerHTML = `
     <div class="roles-wrapper">
       <div class="player-card"><div class="player-name">${data.explainerName||"???"}</div><div class="player-role">ОБЪЯСНЯЕТ</div></div>
@@ -116,15 +104,11 @@ function renderRoundUI(data) {
     </div>`;
   controlsEl.style.display = (currentPhase === "round" && isExplainer) ? "block" : "none";
 
-  if (isMiner && currentPhase === "mine") {
-    const myMines = allMines.filter(m => m.minerId === socket.id).map(m => m.word);
-    mineInput.value = myMines.join(", ");
-    mineInput.style.display = "block";
-    mineBtn.style.display = "inline-block";
-  } else {
-    mineInput.style.display = "none";
-    mineBtn.style.display = "none";
-  }
+  // Показ поля ввода мин для минёра
+  const myMinesCount = allMines.filter(m => m.minerId === socket.id).length;
+  const canStillMine = isMiner && currentPhase === "mine" && myMinesCount < maxMines;
+  mineInput.style.display = canStillMine ? "block" : "none";
+  mineBtn.style.display = canStillMine ? "inline-block" : "none";
 
   updateHostControls();
 }
@@ -135,20 +119,24 @@ function updateHostControls() {
   const settingsBtn = document.getElementById("settingsBtn");
   const startBtn = document.getElementById("startBtn");
 
+  // Для не-хостов скрываем все управляющие кнопки
   if (!isHost) {
     skipBtn.style.display = "none";
     pauseBtn.style.display = "none";
     settingsBtn.style.display = "none";
-    startBtn.style.display = "none";
-    return;
+    startBtn.style.display = "none";   // <-- явно скрываем Start
+    return; // дальше не идём, т.к. остальное только для хоста
   }
 
+  // Далее код только для хоста:
   const activeGamePhases = ["mine", "round"];
   const isLobbyOrFinished = currentPhase === "lobby" || currentPhase === "finished";
   const isPausedNow = activeGamePhases.includes(currentPhase) && isPaused;
 
+  // Кнопка Start: только в лобби или после завершения игры
   startBtn.style.display = isLobbyOrFinished ? "inline-block" : "none";
 
+  // Кнопки Skip и Pause только в фазах mine/round
   if (activeGamePhases.includes(currentPhase)) {
     skipBtn.style.display = isPaused ? "none" : "inline-block";
     pauseBtn.style.display = "inline-block";
@@ -160,6 +148,7 @@ function updateHostControls() {
     pauseBtn.style.display = "none";
   }
 
+  // Настройки: показываем, если лобби/finished или пауза в игровых фазах
   settingsBtn.style.display = (isLobbyOrFinished || isPausedNow) ? "inline-block" : "none";
 }
 
@@ -170,6 +159,7 @@ socket.on("phaseChange", (data) => {
   document.getElementById("timer").innerText = data.time ? "⏱ " + data.time : "";
 
   if (data.phase === "mine") {
+    // Сброс мин при новой фазе минирования
     allMines = [];
     activeMineKeys = [];
     document.getElementById("mineInput").value = "";
@@ -186,7 +176,7 @@ socket.on("phaseChange", (data) => {
 socket.on("roundStart", (data) => {
   currentRound = data;
   currentPhase = "round";
-  document.getElementById("phaseText").innerText = "ROUND";
+  document.getElementById("phase").innerText = "ROUND";
   allMines = data.mines || [];
   activeMineKeys = data.activeMines || [];
   renderRoundUI(data);
@@ -212,32 +202,42 @@ socket.on("pauseToggled", (paused) => {
   isPaused = paused;
   updateHostControls();
 });
-
+socket.on("customPacksUpdated", (packs) => {
+  availablePacks = packs;
+  // Если модальное окно открыто, сразу обновим селект
+  const select = document.getElementById('setWordPack');
+  if (select && document.getElementById('settingsModal').classList.contains('show')) {
+    updatePackSelect();
+  }
+});
 socket.on("settingsUpdated", (settings) => {
   document.getElementById('setMineTime').value = settings.mineTime || 50;
   document.getElementById('setGuessTime').value = settings.guessTime || 50;
   document.getElementById('setMaxMines').value = settings.maxMines || 3;
+  document.getElementById('setWordPack').value = settings.wordPack || "default";
   document.getElementById('setWinScore').value = settings.winScore || 30;
+  // Обновляем локальный лимит
   maxMines = settings.maxMines || 3;
-  // Обновим поле ввода, если мы минёр в фазе mine
+  // Если мы в фазе mine, перепроверим видимость поля ввода
   if (currentPhase === "mine" && myRole === "miner") {
-    const myMines = allMines.filter(m => m.minerId === socket.id).map(m => m.word);
-    document.getElementById("mineInput").value = myMines.join(", ");
+    const mineInput = document.getElementById("mineInput");
+    const mineBtn = document.getElementById("sendMineBtn");
+    const myMines = allMines.filter(m => m.minerId === socket.id).length;
+    const canMine = myMines < maxMines;
+    mineInput.style.display = canMine ? "block" : "none";
+    mineBtn.style.display = canMine ? "inline-block" : "none";
   }
 });
-
 socket.on("customPacksUpdated", (packs) => {
+  console.log("Получены паки:", packs); // для проверки в консоли
   availablePacks = packs;
-  if (document.getElementById('settingsModal').classList.contains('show')) {
-    updatePackSelect();
-  }
+  updatePackSelect();
 });
-
 socket.on("gameOver", (data) => {
   alert(`Победил ${data.winner}! Игра окончена.`);
   currentPhase = "finished";
   updateHostControls();
-  document.getElementById("phaseText").innerText = "GAME OVER";
+  document.getElementById("phase").innerText = "GAME OVER";
 });
 
 socket.on("gameRestarted", () => {
@@ -261,28 +261,51 @@ socket.on("gameRestarted", () => {
 /* --- Мины --- */
 function sendMines() {
   if (myRole !== "miner") return;
+
   const input = document.getElementById("mineInput");
   const value = input.value.trim();
   if (!value) return;
 
-  const words = value.split(",").map(w => w.trim()).filter(Boolean);
-  socket.emit("submitMines", { words });
-}
-
-socket.on("minesUpdated", (minesData) => {
-  // minesData = [{ minerId, words }]
-  allMines = [];
-  minesData.forEach(({ minerId, words }) => {
-    words.forEach(word => {
-      allMines.push({ minerId, word });
-    });
-  });
-  renderMines();
-  if (currentPhase === "mine" && myRole === "miner") {
-    const myMines = allMines.filter(m => m.minerId === socket.id).map(m => m.word);
-    document.getElementById("mineInput").value = myMines.join(", ");
+  // Считаем, сколько мин у нас уже есть
+  const myCurrentMines = allMines.filter(m => m.minerId === socket.id).length;
+  const remaining = maxMines - myCurrentMines;
+  if (remaining <= 0) {
+    // На всякий случай скрываем, если лимит исчерпан
+    input.style.display = "none";
+    document.getElementById("sendMineBtn").style.display = "none";
+    return;
   }
-});
+
+  // Разбиваем ввод, но берём только нужное количество слов
+  const words = value.split(",").map(w => w.trim()).filter(Boolean);
+  const wordsToSend = words.slice(0, remaining);
+
+  if (wordsToSend.length === 0) return;
+
+  // Отправляем на сервер
+  socket.emit("submitMines", { words: wordsToSend });
+
+  // Добавляем локально для отображения
+  wordsToSend.forEach(word => {
+    allMines.push({ minerId: socket.id, word });
+  });
+
+  // Очищаем поле ввода (чтобы удобнее было вводить следующую партию)
+  input.value = "";
+
+  // Проверяем, достигнут ли теперь лимит
+  const newCount = allMines.filter(m => m.minerId === socket.id).length;
+  if (newCount >= maxMines) {
+    input.style.display = "none";
+    document.getElementById("sendMineBtn").style.display = "none";
+  } else {
+    // Оставляем поле видимым для дальнейшего ввода
+    input.style.display = "block";
+    document.getElementById("sendMineBtn").style.display = "inline-block";
+  }
+
+  renderMines();
+}
 
 function renderMines(showAll = false) {
   const box = document.getElementById("mineBox");
@@ -294,22 +317,12 @@ function renderMines(showAll = false) {
     const mine = document.createElement("div");
     mine.className = "mine-card";
     const isOwner = m.minerId === socket.id;
-    const canSee = myRole === "miner" || isOwner || showAll;
-    mine.innerText = canSee ? m.word : "MINA";
+    mine.innerText = (isOwner || showAll) ? m.word : "💣";
     const mineKey = `${m.minerId}:${m.word}`;
     if (activeMineKeys.includes(mineKey)) mine.classList.add("mine-active");
-
-    // Логика клика для минера в фазе round
-    if (myRole === "miner" && currentPhase === "round" && isOwner) {
-      if (activeMineKeys.includes(mineKey)) {
-        // Мина уже активна → клик для деактивации
-        mine.onclick = () => socket.emit("deactivateMine", { word: m.word });
-      } else {
-        // Мина не активна → клик для активации
-        mine.onclick = () => socket.emit("activateMine", { word: m.word });
-      }
+    if (myRole === "miner" && currentPhase === "round" && isOwner && !activeMineKeys.includes(mineKey)) {
+      mine.onclick = () => socket.emit("activateMine", { word: m.word });
     }
-
     box.appendChild(mine);
   });
 }
@@ -318,10 +331,7 @@ socket.on("mineActivated", ({ mineKey }) => {
   if (!activeMineKeys.includes(mineKey)) activeMineKeys.push(mineKey);
   renderMines();
 });
-socket.on("mineDeactivated", ({ mineKey }) => {
-  activeMineKeys = activeMineKeys.filter(k => k !== mineKey);
-  renderMines();
-});
+
 function endRound(guessed) {
   socket.emit("endRound", { guessed });
 }

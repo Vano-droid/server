@@ -6,12 +6,14 @@ body {
   overflow-x: hidden;
 }
 
+/* ГЛАВНЫЙ FLEX-КОНТЕЙНЕР */
 .game-layout {
   display: flex;
-  height: calc(100vh - 100px);
+  height: calc(100vh - 100px); /* вычитаем высоту phase + topbar */
   overflow: hidden;
 }
 
+/* ЛЕВАЯ ПАНЕЛЬ (игроки) */
 .sidebar-left {
   width: 240px;
   padding: 15px;
@@ -41,6 +43,7 @@ body {
   font-weight: bold;
 }
 
+/* ЦЕНТРАЛЬНАЯ ОБЛАСТЬ */
 .game-center {
   flex: 1;
   display: flex;
@@ -51,6 +54,7 @@ body {
   overflow-y: auto;
 }
 
+/* РОЛИ */
 .roles-wrapper {
   display: flex;
   align-items: center;
@@ -91,6 +95,7 @@ body {
   color: #00ff88;
 }
 
+/* СЛОВО */
 .word {
   font-size: 48px;
   font-weight: 900;
@@ -99,6 +104,7 @@ body {
   margin: 20px 0;
 }
 
+/* КНОПКИ ОБЪЯСНЯЮЩЕГО */
 #explainerControls {
   display: flex;
   gap: 15px;
@@ -119,6 +125,7 @@ body {
   color: black;
 }
 
+/* МИНЫ */
 .mine-card {
   display: inline-flex;
   align-items: center;
@@ -143,11 +150,13 @@ body {
   box-shadow: 0 0 20px red;
 }
 
+/* ТАЙМЕР (встроен в phase) */
 #timer {
   font-size: 1.5rem;
   vertical-align: middle;
 }
 
+/* КНОПКА НАСТРОЕК */
 #settingsBtn {
   font-size: 1.2rem;
 }

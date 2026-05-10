@@ -1874,8 +1874,7 @@ function createRoom(roomId) {
     scores: {},
     round: null,
     autoLoop: false,
-    paused: false,
-    customPacks: {}
+    paused: false
   };
 }
 
@@ -1889,11 +1888,7 @@ function pickRoles(players) {
   return { explainer: alive[0], guesser: alive[1] };
 }
 
-function getRandomWord(pack, room) {
-  if (room.customPacks[pack]) {
-    const words = room.customPacks[pack];
-    return words[Math.floor(Math.random() * words.length)];
-  }
+function getRandomWord(pack) {
   const words = wordPacks[pack] || wordPacks.default;
   return words[Math.floor(Math.random() * words.length)];
 }
@@ -1909,7 +1904,6 @@ function sendPlayersUpdate(roomId) {
   }));
   io.to(roomId).emit("playersUpdate", playersData);
 }
-
 function sendAvailablePacks(roomId) {
   const room = rooms[roomId];
   if (!room) return;
@@ -1918,7 +1912,6 @@ function sendAvailablePacks(roomId) {
   const allPacks = [...new Set([...standard, ...custom])];
   io.to(roomId).emit("customPacksUpdated", allPacks);
 }
-
 /* =========================
    MINE PHASE
 ========================= */
@@ -1930,7 +1923,7 @@ function startMinePhase(roomId) {
 
   const { explainer, guesser } = pickRoles(players);
   room.round = {
-    word: getRandomWord(room.settings.wordPack, room),
+    word: getRandomWord(room.settings.wordPack),
     explainerId: explainer.id,
     guesserId: guesser.id,
     mines: {},
@@ -2013,7 +2006,7 @@ function startGuessTimer(roomId) {
 }
 
 /* =========================
-   END ROUND + CHECK WIN
+   END ROUND (исправленная логика очков)
 ========================= */
 function endRound(roomId, guessed) {
   const room = rooms[roomId];
@@ -2030,23 +2023,30 @@ function endRound(roomId, guessed) {
 
   const anyMineActivated = round.activeMines.size > 0;
 
+  // 1. Штрафы и бонусы за мины (всегда, если активированы)
   for (const minerId in round.mines) {
     const mines = round.mines[minerId] || [];
     for (const m of mines) {
       const mineKey = `${minerId}:${m}`;
       if (round.activeMines.has(mineKey)) {
+        // Минёр получает +5
         room.scores[minerId] = (room.scores[minerId] || 0) + 5;
+        // Объясняющий получает -3
         room.scores[explainer] -= 3;
       }
     }
   }
 
+  // 2. Результат раунда (угадано / не угадано)
   if (guessed) {
+    // Отгадывающий всегда +5
     room.scores[guesser] += 5;
+    // Объясняющий +5 только если ни одна мина не взорвалась
     if (!anyMineActivated) {
       room.scores[explainer] += 5;
     }
   }
+  // Если не угадано – дополнительных очков никому (кроме уже учтённых мин)
 
   io.to(roomId).emit("roundEnd", {
     scores: room.scores,
@@ -2057,6 +2057,7 @@ function endRound(roomId, guessed) {
   room.round = null;
   sendPlayersUpdate(roomId);
 
+  // Проверка победы
   const winScore = room.settings.winScore || 30;
   let winnerId = null;
   for (const id in room.scores) {
@@ -2105,8 +2106,8 @@ function restartGame(roomId) {
 
   io.to(roomId).emit("gameRestarted");
   sendPlayersUpdate(roomId);
-  io.to(roomId).emit("phaseChange", { phase: "lobby", time: 0 });
   sendAvailablePacks(roomId);
+  io.to(roomId).emit("phaseChange", { phase: "lobby", time: 0 });
 }
 
 /* =========================
@@ -2162,15 +2163,6 @@ io.on("connection", (socket) => {
     io.to(socket.data.roomId).emit("settingsUpdated", room.settings);
   });
 
-  socket.on("addCustomPack", ({ name, words }) => {
-    const room = rooms[socket.data.roomId];
-    if (!room || socket.id !== room.hostId) return;
-    if (!name || !words || !Array.isArray(words) || words.length === 0) return;
-
-    room.customPacks[name.trim()] = words.map(w => w.trim()).filter(Boolean);
-    sendAvailablePacks(socket.data.roomId);
-  });
-
   socket.on("restartGame", () => {
     const room = rooms[socket.data.roomId];
     if (!room || socket.id !== room.hostId) return;
@@ -2198,19 +2190,10 @@ io.on("connection", (socket) => {
     const room = rooms[socket.data.roomId];
     if (!room?.round) return;
 
+    const existing = room.round.mines[socket.id] || [];
+    const combined = existing.concat(words);
     const max = room.settings.maxMines || 3;
-    // Замена мин минера
-    room.round.mines[socket.id] = words.slice(0, max);
-
-    // Отправляем обновлённый список всем
-    const minesForAll = [];
-    for (const minerId in room.round.mines) {
-      minesForAll.push({
-        minerId,
-        words: room.round.mines[minerId]
-      });
-    }
-    io.to(socket.data.roomId).emit("minesUpdated", minesForAll);
+    room.round.mines[socket.id] = combined.slice(0, max);
   });
 
   socket.on("activateMine", ({ word }) => {
@@ -2223,17 +2206,7 @@ io.on("connection", (socket) => {
     room.round.activeMines.add(mineKey);
     io.to(socket.data.roomId).emit("mineActivated", { mineKey, word, minerId });
   });
-  socket.on("deactivateMine", ({ word }) => {
-  const room = rooms[socket.data.roomId];
-  if (!room?.round) return;
-  const minerId = socket.id;
-  const mineKey = `${minerId}:${word}`;
-  const minerWords = room.round.mines[minerId];
-  if (!minerWords || !minerWords.includes(word)) return;
-  if (!room.round.activeMines.has(mineKey)) return; // уже не активна
-  room.round.activeMines.delete(mineKey);
-  io.to(socket.data.roomId).emit("mineDeactivated", { mineKey, word, minerId });
-});
+
   socket.on("endRound", ({ guessed }) => {
     const room = rooms[socket.data.roomId];
     if (!room?.round || socket.id !== room.round.explainerId) return;
