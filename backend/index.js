@@ -2191,12 +2191,70 @@ io.on("connection", (socket) => {
     io.to(socket.data.roomId).emit("pauseToggled", room.paused);
   });
 
-  socket.on("submitMines", ({ words }) => {
+  // Добавление новых мин (кнопка "Заминировать")
+socket.on("addMines", ({ words }) => {
   const room = rooms[socket.data.roomId];
   if (!room?.round) return;
-
   const max = room.settings.maxMines || 3;
-  room.round.mines[socket.id] = words.slice(0, max);
+  const existing = room.round.mines[socket.id] || [];
+  const combined = existing.concat(words);
+  room.round.mines[socket.id] = combined.slice(0, max);
+
+  // Рассылаем обновлённый список всем
+  const minesForAll = [];
+  for (const minerId in room.round.mines) {
+    const player = room.players.find(p => p.id === minerId);
+    minesForAll.push({
+      minerId,
+      minerName: player?.name || "Unknown",
+      words: room.round.mines[minerId]
+    });
+  }
+  io.to(socket.data.roomId).emit("minesUpdated", minesForAll);
+});
+
+// Редактирование мины
+socket.on("editMine", ({ oldWord, newWord }) => {
+  const room = rooms[socket.data.roomId];
+  if (!room?.round) return;
+  const playerMines = room.round.mines[socket.id];
+  if (!playerMines) return;
+  const index = playerMines.indexOf(oldWord);
+  if (index === -1) return;
+  // Если новое слово пустое – удаляем мину (опционально)
+  if (!newWord || newWord.trim() === "") {
+    playerMines.splice(index, 1);
+  } else {
+    playerMines[index] = newWord.trim();
+  }
+  room.round.mines[socket.id] = playerMines;
+
+  const minesForAll = [];
+  for (const minerId in room.round.mines) {
+    const player = room.players.find(p => p.id === minerId);
+    minesForAll.push({
+      minerId,
+      minerName: player?.name || "Unknown",
+      words: room.round.mines[minerId]
+    });
+  }
+  io.to(socket.data.roomId).emit("minesUpdated", minesForAll);
+});
+
+// Удаление мины
+socket.on("deleteMine", ({ word }) => {
+  const room = rooms[socket.data.roomId];
+  if (!room?.round) return;
+  const playerMines = room.round.mines[socket.id];
+  if (!playerMines) return;
+  const index = playerMines.indexOf(word);
+  if (index === -1) return;
+  playerMines.splice(index, 1);
+  if (playerMines.length === 0) {
+    delete room.round.mines[socket.id];
+  } else {
+    room.round.mines[socket.id] = playerMines;
+  }
 
   const minesForAll = [];
   for (const minerId in room.round.mines) {

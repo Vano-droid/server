@@ -263,17 +263,16 @@ socket.on("gameRestarted", () => {
 
 /* --- Мины --- */
 function sendMines() {
-  if (myRole !== "miner") return;
+  if (myRole !== "miner" || currentPhase !== "mine") return;
   const input = document.getElementById("mineInput");
   const value = input.value.trim();
-  
-  const words = value
-    .split(",")
-    .map(w => w.trim())
-    .filter(Boolean);
-    
-  // Всегда отправляем весь список (даже пустой, чтобы очистить)
-  socket.emit("submitMines", { words });
+  if (!value) return;
+
+  const words = value.split(",").map(w => w.trim()).filter(Boolean);
+  if (words.length === 0) return;
+
+  socket.emit("addMines", { words });
+  input.value = ""; // очищаем поле после отправки
 }
 
 function renderMines(showAll = false) {
@@ -287,26 +286,112 @@ function renderMines(showAll = false) {
     mine.className = "mine-card";
     const isOwner = m.minerId === socket.id;
     const canSee = myRole === "miner" || isOwner || showAll;
-    
-    // Отображаем слово и автора
-    mine.innerHTML = canSee 
-      ? `${m.word}<div class="mine-author">${m.minerName || "???"}</div>` 
-      : `MINA`;
-    
-    const mineKey = `${m.minerId}:${m.word}`;
-    if (activeMineKeys.includes(mineKey)) mine.classList.add("mine-active");
 
-    // Клик только для своего в фазе round
+    // Основное содержимое
+    let content = canSee ? m.word : "MINA";
+    if (canSee && m.minerName) {
+      content += `<div class="mine-author">${m.minerName}</div>`;
+    }
+    mine.innerHTML = content;
+
+    const mineKey = `${m.minerId}:${m.word}`;
+    if (activeMineKeys.includes(mineKey)) {
+      mine.classList.add("mine-active");
+    }
+
+    // Кнопки редактирования/удаления только для владельца в фазе mine
+    if (isOwner && currentPhase === "mine" && !showAll) {
+      // Контейнер для иконок
+      const btnContainer = document.createElement("div");
+      btnContainer.className = "mine-buttons";
+
+      const editBtn = document.createElement("span");
+      editBtn.className = "mine-edit-btn";
+      editBtn.innerHTML = "✎";
+      editBtn.title = "Редактировать мину";
+      editBtn.onclick = (e) => {
+        e.stopPropagation();
+        startEditMine(m);
+      };
+
+      const deleteBtn = document.createElement("span");
+      deleteBtn.className = "mine-delete-btn";
+      deleteBtn.innerHTML = "✕";
+      deleteBtn.title = "Удалить мину";
+      deleteBtn.onclick = (e) => {
+        e.stopPropagation();
+        socket.emit("deleteMine", { word: m.word });
+      };
+
+      btnContainer.appendChild(editBtn);
+      btnContainer.appendChild(deleteBtn);
+      mine.appendChild(btnContainer);
+    }
+
+    // Клик для активации/деактивации (только в фазе round для владельца)
     if (myRole === "miner" && currentPhase === "round" && isOwner) {
       if (activeMineKeys.includes(mineKey)) {
         mine.onclick = () => socket.emit("deactivateMine", { word: m.word });
       } else {
         mine.onclick = () => socket.emit("activateMine", { word: m.word });
       }
+    } else {
+      mine.onclick = null; // убираем клик, чтобы не мешал
     }
 
     box.appendChild(mine);
   });
+}
+
+// Функция начала редактирования мины
+function startEditMine(mineObj) {
+  // Находим родительскую карточку (ближайший .mine-card)
+  const card = [...document.querySelectorAll('.mine-card')].find(c => {
+    return c.innerText.includes(mineObj.word) && c.querySelector('.mine-author')?.innerText === mineObj.minerName;
+  });
+  if (!card) return;
+
+  // Создаём поле ввода
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = mineObj.word;
+  input.className = "mine-edit-input";
+  input.style.width = "80%";
+
+  // Кнопки сохранить/отменить
+  const saveBtn = document.createElement("button");
+  saveBtn.innerHTML = "✅";
+  saveBtn.className = "mine-edit-save";
+  const cancelBtn = document.createElement("button");
+  cancelBtn.innerHTML = "✖";
+  cancelBtn.className = "mine-edit-cancel";
+
+  const editContainer = document.createElement("div");
+  editContainer.className = "mine-edit-container";
+  editContainer.appendChild(input);
+  editContainer.appendChild(saveBtn);
+  editContainer.appendChild(cancelBtn);
+
+  // Заменяем содержимое карточки
+  card.innerHTML = "";
+  card.appendChild(editContainer);
+
+  // Сохранение
+  saveBtn.onclick = (e) => {
+    e.stopPropagation();
+    const newWord = input.value.trim();
+    socket.emit("editMine", { oldWord: mineObj.word, newWord: newWord || "" });
+    // Сервер отправит minesUpdated, который перерисует всё
+  };
+
+  // Отмена
+  cancelBtn.onclick = (e) => {
+    e.stopPropagation();
+    renderMines(); // просто перерисовываем (можно без запроса к серверу)
+  };
+
+  // Фокус на поле ввода
+  input.focus();
 }
 
 socket.on("mineActivated", ({ mineKey }) => {
