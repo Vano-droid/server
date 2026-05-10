@@ -1971,15 +1971,10 @@ function startGuessPhase(roomId) {
   const explainer = room.players.find(p => p.id === room.round.explainerId);
   const guesser = room.players.find(p => p.id === room.round.guesserId);
   const minesArray = [];
-for (const minerId in room.round.mines) {
-  const words = room.round.mines[minerId];
-  const player = room.players.find(p => p.id === minerId);
-  words.forEach(word => minesArray.push({ 
-    minerId, 
-    minerName: player?.name || "Unknown", 
-    word 
-  }));
-}
+  for (const minerId in room.round.mines) {
+    const words = room.round.mines[minerId];
+    words.forEach(word => minesArray.push({ minerId, word }));
+  }
 
   io.to(roomId).emit("roundStart", {
     word: room.round.word,
@@ -2192,23 +2187,14 @@ io.on("connection", (socket) => {
   });
 
   socket.on("submitMines", ({ words }) => {
-  const room = rooms[socket.data.roomId];
-  if (!room?.round) return;
+    const room = rooms[socket.data.roomId];
+    if (!room?.round) return;
 
-  const max = room.settings.maxMines || 3;
-  room.round.mines[socket.id] = words.slice(0, max);
-
-  const minesForAll = [];
-  for (const minerId in room.round.mines) {
-    const player = room.players.find(p => p.id === minerId);
-    minesForAll.push({
-      minerId,
-      minerName: player?.name || "Unknown",
-      words: room.round.mines[minerId]
-    });
-  }
-  io.to(socket.data.roomId).emit("minesUpdated", minesForAll);
-});
+    const existing = room.round.mines[socket.id] || [];
+    const combined = existing.concat(words);
+    const max = room.settings.maxMines || 3;
+    room.round.mines[socket.id] = combined.slice(0, max);
+  });
 
   socket.on("activateMine", ({ word }) => {
     const room = rooms[socket.data.roomId];

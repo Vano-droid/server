@@ -261,16 +261,50 @@ socket.on("gameRestarted", () => {
 /* --- Мины --- */
 function sendMines() {
   if (myRole !== "miner") return;
+
   const input = document.getElementById("mineInput");
   const value = input.value.trim();
-  
-  const words = value
-    .split(",")
-    .map(w => w.trim())
-    .filter(Boolean);
-    
-  // Всегда отправляем весь список (даже пустой, чтобы очистить)
-  socket.emit("submitMines", { words });
+  if (!value) return;
+
+  // Считаем, сколько мин у нас уже есть
+  const myCurrentMines = allMines.filter(m => m.minerId === socket.id).length;
+  const remaining = maxMines - myCurrentMines;
+  if (remaining <= 0) {
+    // На всякий случай скрываем, если лимит исчерпан
+    input.style.display = "none";
+    document.getElementById("sendMineBtn").style.display = "none";
+    return;
+  }
+
+  // Разбиваем ввод, но берём только нужное количество слов
+  const words = value.split(",").map(w => w.trim()).filter(Boolean);
+  const wordsToSend = words.slice(0, remaining);
+
+  if (wordsToSend.length === 0) return;
+
+  // Отправляем на сервер
+  socket.emit("submitMines", { words: wordsToSend });
+
+  // Добавляем локально для отображения
+  wordsToSend.forEach(word => {
+    allMines.push({ minerId: socket.id, word });
+  });
+
+  // Очищаем поле ввода (чтобы удобнее было вводить следующую партию)
+  input.value = "";
+
+  // Проверяем, достигнут ли теперь лимит
+  const newCount = allMines.filter(m => m.minerId === socket.id).length;
+  if (newCount >= maxMines) {
+    input.style.display = "none";
+    document.getElementById("sendMineBtn").style.display = "none";
+  } else {
+    // Оставляем поле видимым для дальнейшего ввода
+    input.style.display = "block";
+    document.getElementById("sendMineBtn").style.display = "inline-block";
+  }
+
+  renderMines();
 }
 
 function renderMines(showAll = false) {
@@ -284,20 +318,17 @@ function renderMines(showAll = false) {
     mine.className = "mine-card";
     const isOwner = m.minerId === socket.id;
     const canSee = myRole === "miner" || isOwner || showAll;
-    
-    // Отображаем слово и автора
-    mine.innerHTML = canSee 
-      ? `${m.word}<div class="mine-author">${m.minerName || "???"}</div>` 
-      : `MINA`;
-    
+    mine.innerText = canSee ? m.word : "MINA";
     const mineKey = `${m.minerId}:${m.word}`;
     if (activeMineKeys.includes(mineKey)) mine.classList.add("mine-active");
 
-    // Клик только для своего в фазе round
+    // Логика клика для минера в фазе round
     if (myRole === "miner" && currentPhase === "round" && isOwner) {
       if (activeMineKeys.includes(mineKey)) {
+        // Мина уже активна → клик для деактивации
         mine.onclick = () => socket.emit("deactivateMine", { word: m.word });
       } else {
+        // Мина не активна → клик для активации
         mine.onclick = () => socket.emit("activateMine", { word: m.word });
       }
     }
@@ -317,21 +348,7 @@ socket.on("mineDeactivated", ({ mineKey }) => {
 function endRound(guessed) {
   socket.emit("endRound", { guessed });
 }
-socket.on("minesUpdated", (minesData) => {
-  // minesData = [{ minerId, minerName, words }]
-  allMines = [];
-  minesData.forEach(({ minerId, minerName, words }) => {
-    words.forEach(word => {
-      allMines.push({ minerId, minerName, word });
-    });
-  });
-  renderMines();
-  // обновим поле ввода для текущего минера
-  if (currentPhase === "mine" && myRole === "miner") {
-    const myMines = allMines.filter(m => m.minerId === socket.id).map(m => m.word);
-    document.getElementById("mineInput").value = myMines.join(", ");
-  }
-});
+
 socket.on("roundEnd", (data) => {
   currentPhase = "results";
   renderMines(true);

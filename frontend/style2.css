@@ -103,13 +103,7 @@ body {
   text-shadow: 0 0 10px #ff9900, 0 0 30px #ff6600;
   margin: 20px 0;
 }
-.mine-author {
-  font-size: 0.7rem;
-  color: #aaa;
-  margin-top: 2px;
-  text-align: center;
-  line-height: 1;
-}
+
 /* КНОПКИ ОБЪЯСНЯЮЩЕГО */
 #explainerControls {
   display: flex;
