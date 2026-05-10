@@ -155,6 +155,7 @@ function updateHostControls() {
 /* --- События сервера --- */
 socket.on("phaseChange", (data) => {
   currentPhase = data.phase;
+  // Обновляем только текст внутри span, сам div#phase не трогаем
   document.getElementById("phaseText").innerText = data.phase === "finished" ? "GAME OVER" : data.phase.toUpperCase();
   document.getElementById("timer").innerText = data.time ? "⏱ " + data.time : "";
 
@@ -176,7 +177,8 @@ socket.on("phaseChange", (data) => {
 socket.on("roundStart", (data) => {
   currentRound = data;
   currentPhase = "round";
-  document.getElementById("phase").innerText = "ROUND";
+  document.getElementById("phaseText").innerText = "Фаза отгадывания";
+  document.getElementById("timer").innerText = data.time ? "⏱ " + data.time : ""; // <-- добавить эту строку
   allMines = data.mines || [];
   activeMineKeys = data.activeMines || [];
   renderRoundUI(data);
@@ -237,7 +239,8 @@ socket.on("gameOver", (data) => {
   alert(`Победил ${data.winner}! Игра окончена.`);
   currentPhase = "finished";
   updateHostControls();
-  document.getElementById("phase").innerText = "GAME OVER";
+  document.getElementById("phaseText").innerText = "Игра закончена";
+  document.getElementById("timer").innerText = ""; // можно оставить пустым или убрать
 });
 
 socket.on("gameRestarted", () => {
@@ -247,14 +250,14 @@ socket.on("gameRestarted", () => {
   activeMineKeys = [];
   currentRound = null;
   myRole = null;
-  document.getElementById("word").innerText = "WAITING...";
+  document.getElementById("word").innerText = "Ожидание...";
   document.getElementById("rolesLine").innerHTML = "";
   document.getElementById("explainerControls").style.display = "none";
   document.getElementById("mineInput").style.display = "none";
   document.getElementById("sendMineBtn").style.display = "none";
   document.getElementById("mineBox").innerHTML = "";
   document.getElementById("timer").innerText = "";
-  document.getElementById("phaseText").innerText = "LOBBY";
+  document.getElementById("phaseText").innerText = "Лобби";
   updateHostControls();
 });
 
