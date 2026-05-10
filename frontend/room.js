@@ -317,12 +317,22 @@ function renderMines(showAll = false) {
     const mine = document.createElement("div");
     mine.className = "mine-card";
     const isOwner = m.minerId === socket.id;
-    mine.innerText = (isOwner || showAll) ? m.word : "💣";
+    const canSee = myRole === "miner" || isOwner || showAll;
+    mine.innerText = canSee ? m.word : "MINA";
     const mineKey = `${m.minerId}:${m.word}`;
     if (activeMineKeys.includes(mineKey)) mine.classList.add("mine-active");
-    if (myRole === "miner" && currentPhase === "round" && isOwner && !activeMineKeys.includes(mineKey)) {
-      mine.onclick = () => socket.emit("activateMine", { word: m.word });
+
+    // Логика клика для минера в фазе round
+    if (myRole === "miner" && currentPhase === "round" && isOwner) {
+      if (activeMineKeys.includes(mineKey)) {
+        // Мина уже активна → клик для деактивации
+        mine.onclick = () => socket.emit("deactivateMine", { word: m.word });
+      } else {
+        // Мина не активна → клик для активации
+        mine.onclick = () => socket.emit("activateMine", { word: m.word });
+      }
     }
+
     box.appendChild(mine);
   });
 }
@@ -331,7 +341,10 @@ socket.on("mineActivated", ({ mineKey }) => {
   if (!activeMineKeys.includes(mineKey)) activeMineKeys.push(mineKey);
   renderMines();
 });
-
+socket.on("mineDeactivated", ({ mineKey }) => {
+  activeMineKeys = activeMineKeys.filter(k => k !== mineKey);
+  renderMines();
+});
 function endRound(guessed) {
   socket.emit("endRound", { guessed });
 }
