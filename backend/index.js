@@ -1871,6 +1871,7 @@ function createRoom(roomId) {
       winScore: 30
     },
     players: [],
+    lastRoles: { explainer: null, guesser: null },
     scores: {},
     round: null,
     autoLoop: false,
@@ -1878,14 +1879,45 @@ function createRoom(roomId) {
   };
 }
 
-function pickRoles(players) {
+function pickRoles(players, lastRoles) {
   const alive = [...players];
-  if (alive.length < 2) return { explainer: alive[0] || null, guesser: alive[0] || null };
-  for (let i = alive.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [alive[i], alive[j]] = [alive[j], alive[i]];
+  if (alive.length < 2) {
+    return { explainer: alive[0] || null, guesser: alive[0] || null };
   }
-  return { explainer: alive[0], guesser: alive[1] };
+
+  // Попытка исключить прошлых объясняющего и угадывающего
+  const excludeExplainer = lastRoles?.explainer;
+  const excludeGuesser = lastRoles?.guesser;
+
+  const candidatesForExplainer = alive.filter(p => p.id !== excludeExplainer);
+  const candidatesForGuesser = alive.filter(p => p.id !== excludeGuesser);
+
+  // Если после исключений осталось недостаточно – используем обычный случайный выбор
+  if (candidatesForExplainer.length === 0 || candidatesForGuesser.length === 0) {
+    return randomPick(alive);
+  }
+
+  // Случайный объясняющий из допустимых
+  const explainer = candidatesForExplainer[Math.floor(Math.random() * candidatesForExplainer.length)];
+  
+  // Угадывающий: исключаем и прошлого угадывающего, и уже выбранного объясняющего (чтобы не один и тот же)
+  const candidatesForGuesserFinal = alive.filter(
+    p => p.id !== explainer.id && p.id !== excludeGuesser
+  );
+  const guesser = candidatesForGuesserFinal.length > 0
+    ? candidatesForGuesserFinal[Math.floor(Math.random() * candidatesForGuesserFinal.length)]
+    : candidatesForGuesser.find(p => p.id !== explainer.id); // fallback на любого, кроме объясняющего
+
+  return { explainer, guesser };
+}
+
+function randomPick(players) {
+  const shuffled = [...players];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return { explainer: shuffled[0], guesser: shuffled[1] };
 }
 
 function getRandomWord(pack) {
@@ -1921,14 +1953,19 @@ function startMinePhase(roomId) {
   const players = room.players;
   if (players.length < 2) return;
 
-  const { explainer, guesser } = pickRoles(players);
+  const { explainer, guesser } = pickRoles(players, room.lastRoles);
   room.round = {
     word: getRandomWord(room.settings.wordPack),
     explainerId: explainer.id,
     guesserId: guesser.id,
     mines: {},
     activeMines: new Set()
+    
   };
+  room.lastRoles = {
+  explainer: explainer.id,
+  guesser: guesser.id
+};
   room.state = "mine";
   room.paused = false;
   clearInterval(timers[roomId]);
@@ -2294,7 +2331,16 @@ socket.on("deleteMine", ({ word }) => {
     if (!room?.round || socket.id !== room.round.explainerId) return;
     endRound(socket.data.roomId, guessed);
   });
-
+socket.on("updateScore", ({ playerId, score }) => {
+  const room = rooms[socket.data.roomId];
+  if (!room || socket.id !== room.hostId) return;
+  // Разрешаем менять очки только в лобби, после завершения игры или на паузе
+  if (room.state !== "lobby" && room.state !== "finished" && !room.paused) return;
+  const player = room.players.find(p => p.id === playerId);
+  if (!player) return;
+  room.scores[playerId] = Math.max(0, Number(score) || 0);
+  sendPlayersUpdate(socket.data.roomId);
+});
   socket.on("disconnect", () => {
     const room = rooms[socket.data.roomId];
     if (!room) return;

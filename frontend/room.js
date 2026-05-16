@@ -107,8 +107,15 @@ function renderRoundUI(data) {
   // Показ поля ввода мин для минёра
   const myMinesCount = allMines.filter(m => m.minerId === socket.id).length;
   const canStillMine = isMiner && currentPhase === "mine" && myMinesCount < maxMines;
-  mineInput.style.display = canStillMine ? "block" : "none";
-  mineBtn.style.display = canStillMine ? "inline-block" : "none";
+  if (isMiner && currentPhase === "mine") {
+  mineInput.style.display = "block";
+  mineBtn.style.display = "inline-block";
+  // Оставляем поле пустым – не подставляем старые мины
+  mineInput.value = "";
+} else {
+  mineInput.style.display = "none";
+  mineBtn.style.display = "none";
+}
 
   updateHostControls();
 }
@@ -193,8 +200,28 @@ socket.on("playersUpdate", (players) => {
   const div = document.getElementById("players");
   div.innerHTML = players.map(p => {
     const star = p.isHost ? " ⭐" : "";
-    return `<div class="player-item">${p.name}${star}<span class="player-score">${p.score}</span></div>`;
+    // Если я хост, то очки — кликабельный span, иначе простой
+    const scoreHtml = isHost
+      ? `<span class="player-score editable-score" data-player-id="${p.id}" title="Изменить очки">${p.score}</span>`
+      : `<span class="player-score">${p.score}</span>`;
+    return `<div class="player-item">${p.name}${star}${scoreHtml}</div>`;
   }).join("");
+
+  // Если я хост — навешиваю обработчики на все editable-score
+  if (isHost) {
+    document.querySelectorAll('.editable-score').forEach(el => {
+      el.onclick = () => {
+        const playerId = el.dataset.playerId;
+        const currentScore = parseInt(el.innerText) || 0;
+        const newScore = prompt("Новое количество очков:", currentScore);
+        if (newScore !== null && !isNaN(newScore)) {
+          socket.emit("updateScore", { playerId, score: parseInt(newScore) });
+        }
+      };
+    });
+  }
+
+  // Обновляю isHost (на случай, если хост сменился)
   const me = players.find(p => p.id === socket.id);
   isHost = me?.isHost || false;
   updateHostControls();
@@ -235,6 +262,16 @@ socket.on("customPacksUpdated", (packs) => {
   availablePacks = packs;
   updatePackSelect();
 });
+socket.on("updateScore", ({ playerId, score }) => {
+  const room = rooms[socket.data.roomId];
+  if (!room || socket.id !== room.hostId) return;
+  // Разрешаем менять очки только в лобби, после игры или на паузе
+  if (room.state !== "lobby" && room.state !== "finished" && !room.paused) return;
+  const player = room.players.find(p => p.id === playerId);
+  if (!player) return;
+  room.scores[playerId] = Math.max(0, Number(score) || 0);
+  sendPlayersUpdate(socket.data.roomId);
+});
 socket.on("gameOver", (data) => {
   alert(`Победил ${data.winner}! Игра окончена.`);
   currentPhase = "finished";
@@ -271,8 +308,11 @@ function sendMines() {
   const words = value.split(",").map(w => w.trim()).filter(Boolean);
   if (words.length === 0) return;
 
+  // Отправляем мины на сервер (добавление, а не замена)
   socket.emit("addMines", { words });
-  input.value = ""; // очищаем поле после отправки
+
+  // Очищаем поле ввода после отправки
+  input.value = "";
 }
 
 function renderMines(showAll = false) {
@@ -415,10 +455,6 @@ socket.on("minesUpdated", (minesData) => {
   });
   renderMines();
   // обновим поле ввода для текущего минера
-  if (currentPhase === "mine" && myRole === "miner") {
-    const myMines = allMines.filter(m => m.minerId === socket.id).map(m => m.word);
-    document.getElementById("mineInput").value = myMines.join(", ");
-  }
 });
 socket.on("roundEnd", (data) => {
   currentPhase = "results";

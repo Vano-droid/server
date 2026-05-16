@@ -316,3 +316,10 @@ body {
     margin: 2px;
   }
 }
+.editable-score {
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.editable-score:hover {
+  background: #444;
+}
