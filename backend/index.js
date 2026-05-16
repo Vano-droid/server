@@ -1871,14 +1871,35 @@ function createRoom(roomId) {
       winScore: 30
     },
     players: [],
-    lastRoles: { explainer: null, guesser: null },
     scores: {},
+    customPacks: {},
+    explainerQueue: [],   // очередь для объясняющих
+    guesserQueue: [],      // очередь для угадывающих
     round: null,
     autoLoop: false,
     paused: false
   };
 }
+// Заполняет очереди ролей случайным образом, исключая совпадение в одном раунде
+function initQueues(room) {
+  const playerIds = room.players.map(p => p.id);
+  if (playerIds.length < 2) return;
 
+  // Перемешиваем для объясняющих
+  const shuffledExplain = [...playerIds];
+  for (let i = shuffledExplain.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledExplain[i], shuffledExplain[j]] = [shuffledExplain[j], shuffledExplain[i]];
+  }
+
+  // Очередь угадывающих: циклический сдвиг на 1, чтобы избежать совпадения в одном раунде
+  const shiftedGuess = [...shuffledExplain];
+  const first = shiftedGuess.shift();
+  shiftedGuess.push(first);
+
+  room.explainerQueue = [...shuffledExplain];
+  room.guesserQueue = [...shiftedGuess];
+}
 function pickRoles(players, lastRoles) {
   const alive = [...players];
   if (alive.length < 2) {
@@ -1953,26 +1974,36 @@ function startMinePhase(roomId) {
   const players = room.players;
   if (players.length < 2) return;
 
-  const { explainer, guesser } = pickRoles(players, room.lastRoles);
+  // Если очереди пусты — заполняем
+  if (room.explainerQueue.length === 0 || room.guesserQueue.length === 0) {
+    initQueues(room);
+  }
+
+  const explainerId = room.explainerQueue.shift();
+  let guesserId = room.guesserQueue.shift();
+
+  // Если извлечённый guesserId совпадает с explainerId (крайний случай), меняем его
+  if (guesserId === explainerId && room.guesserQueue.length > 0) {
+    room.guesserQueue.push(guesserId); // возвращаем в конец
+    guesserId = room.guesserQueue.shift();
+  }
+
+  const explainer = players.find(p => p.id === explainerId);
+  const guesser = players.find(p => p.id === guesserId);
+  if (!explainer || !guesser) return; // такого быть не должно
+
   room.round = {
-    word: getRandomWord(room.settings.wordPack),
+    word: getRandomWord(room.settings.wordPack, room),
     explainerId: explainer.id,
     guesserId: guesser.id,
     mines: {},
     activeMines: new Set()
-    
   };
-  room.lastRoles = {
-  explainer: explainer.id,
-  guesser: guesser.id
-};
   room.state = "mine";
   room.paused = false;
   clearInterval(timers[roomId]);
 
   let t = room.settings.mineTime;
-  const explainerData = room.players.find(p => p.id === room.round?.explainerId);
-  const guesserData = room.players.find(p => p.id === room.round?.guesserId);
 
   io.to(roomId).emit("phaseChange", {
     phase: "mine",
@@ -1980,8 +2011,8 @@ function startMinePhase(roomId) {
     word: room.round?.word,
     explainerId: room.round?.explainerId,
     guesserId: room.round?.guesserId,
-    explainerName: explainerData?.name || "PLAYER",
-    guesserName: guesserData?.name || "PLAYER"
+    explainerName: explainer?.name || "PLAYER",
+    guesserName: guesser?.name || "PLAYER"
   });
 
   timers[roomId] = setInterval(() => {
@@ -2150,6 +2181,8 @@ function restartGame(roomId) {
   sendPlayersUpdate(roomId);
   sendAvailablePacks(roomId);
   io.to(roomId).emit("phaseChange", { phase: "lobby", time: 0 });
+  room.explainerQueue = [];
+  room.guesserQueue = [];
 }
 
 /* =========================
@@ -2171,7 +2204,11 @@ io.on("connection", (socket) => {
     if (!room.hostId) {
       room.hostId = socket.id;
     }
-
+    // Если комната в лобби, сбрасываем очереди, чтобы новый игрок участвовал в будущем цикле
+if (room.state === "lobby") {
+  room.explainerQueue = [];
+  room.guesserQueue = [];
+}
     sendPlayersUpdate(roomId);
     sendAvailablePacks(roomId);
   });
@@ -2180,12 +2217,16 @@ io.on("connection", (socket) => {
     const room = rooms[socket.data.roomId];
     if (!room || socket.id !== room.hostId) return;
     if (data.action === "start") {
-      if (room.state === "lobby" || room.state === "finished") {
-        room.autoLoop = true;
-        if (room.state === "finished") room.state = "lobby";
-        startMinePhase(socket.data.roomId);
-      }
-    }
+  clearInterval(timers[socket.data.roomId]);
+  if (room.state === "lobby" || room.state === "finished") {
+    room.autoLoop = true;
+    if (room.state === "finished") room.state = "lobby";
+    // Сбрасываем очереди при старте новой игры
+    room.explainerQueue = [];
+    room.guesserQueue = [];
+    startMinePhase(socket.data.roomId);
+  }
+}
     if (data.action === "pause") {
       room.autoLoop = false;
       clearInterval(timers[socket.data.roomId]);
