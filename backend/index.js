@@ -2383,15 +2383,34 @@ socket.on("updateScore", ({ playerId, score }) => {
   sendPlayersUpdate(socket.data.roomId);
 });
   socket.on("disconnect", () => {
-    const room = rooms[socket.data.roomId];
-    if (!room) return;
-    room.players = room.players.filter(p => p.id !== socket.id);
-    delete room.scores[socket.id];
-    if (room.hostId === socket.id) room.hostId = room.players[0]?.id || null;
-    sendPlayersUpdate(socket.data.roomId);
-  });
+  const roomId = socket.data.roomId;
+  const room = rooms[roomId];
+  if (!room) return;
+
+  room.players = room.players.filter(p => p.id !== socket.id);
+  delete room.scores[socket.id];
+  if (room.hostId === socket.id) room.hostId = room.players[0]?.id || null;
+
+  // Если комната опустела – удаляем её и таймер
+  if (room.players.length === 0) {
+    clearInterval(timers[roomId]);
+    delete timers[roomId];
+    delete rooms[roomId];
+  } else {
+    sendPlayersUpdate(roomId);
+  }
+});
 });
 
-server.listen(process.env.PORT || 3000, () => {
-  console.log("Server running");
-});
+// Автоочистка пустых комнат каждые 60 секунд
+setInterval(() => {
+  for (const roomId in rooms) {
+    const room = rooms[roomId];
+    if (!room || room.players.length === 0) {
+      clearInterval(timers[roomId]);
+      delete timers[roomId];
+      delete rooms[roomId];
+      console.log(`Автоочистка комнаты ${roomId}`);
+    }
+  }
+}, 60_000);
