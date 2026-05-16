@@ -112,10 +112,10 @@ function renderRoundUI(data) {
   mineBtn.style.display = "inline-block";
   // Оставляем поле пустым – не подставляем старые мины
   mineInput.value = "";
-} else {
+}else if(!canStillMine){
   mineInput.style.display = "none";
   mineBtn.style.display = "none";
-}
+} 
 
   updateHostControls();
 }
