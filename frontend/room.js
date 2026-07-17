@@ -56,12 +56,8 @@ function updatePackSelect() {
   }
 }
 function openSettings() {
-  const modal = new bootstrap.Modal(document.getElementById('settingsModal'));
-  function openSettings() {
   updatePackSelect(); // обновим селект перед открытием
   const modal = new bootstrap.Modal(document.getElementById('settingsModal'));
-  modal.show();
-}
   modal.show();
 }
 
